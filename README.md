@@ -1,0 +1,358 @@
+# ProPhoto Editor - Complete Image Editor
+
+A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and JavaScript. No dependencies required!
+
+**🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
+
+![ProPhoto Editor](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black)
+
+## 🎨 Features
+
+### Drawing Tools
+- **Move Tool** - Pan and navigate the canvas
+- **Marquee Tool** - Create rectangular selections
+- **Lasso Tool** - Freehand selection tool
+- **Magic Wand** - Select similar colored regions
+- **Brush Tool** - Paint with customizable brushes
+- **Pencil Tool** - Draw precise lines
+- **Eraser Tool** - Remove content with customizable size
+- **Spray Tool** - Airbrush-style painting
+- **Text Tool** - Add text to your images
+- **Fill Tool** - Flood fill with color
+- **Crop Tool** - Crop images to desired size
+
+### Image Filters (7 Total)
+- Brightness adjustment
+- Contrast enhancement
+- Blur effect
+- Sharpen effect
+- Grayscale conversion
+- Invert colors
+- Sepia tone
+
+### Layer Management
+- Multiple layers support
+- Layer visibility toggle
+- Layer opacity control
+- Duplicate layers
+- Delete layers
+- Merge layers down
+- Flatten all layers
+- Transparency displayed with checkered pattern
+- Background layer system (white by default)
+
+### Advanced Features
+- **History System** - Full undo/redo functionality with clickable history panel (up to 20 steps)
+- **Zoom Controls** - Zoom from 10% to 500%
+- **Grid Overlay** - Toggle grid for precise alignment
+- **Color Palette** - 32 predefined colors + custom color picker
+- **Export Options** - Save as PNG or JPEG
+- **Keyboard Shortcuts** - For faster workflow
+- **Responsive Design** - Works on different screen sizes
+
+## 🚀 Getting Started
+
+### Prerequisites
+- A modern web browser (Chrome, Firefox, Safari, Edge)
+- No installation or dependencies required!
+
+### Running the Application
+
+1. **Clone or download the repository**
+   ```bash
+   git clone https://github.com/kyroskoh/photoshop-clone.git
+   cd photoshop-clone
+   ```
+
+2. **Open the application**
+   - Simply open `index.html` in your web browser
+   - Or use a local server:
+     ```bash
+     # Python 3
+     python -m http.server 8000
+     
+     # Python 2
+     python -m SimpleHTTPServer 8000
+     
+     # Node.js (with http-server)
+     npx http-server
+     ```
+   - Then navigate to `http://localhost:8000`
+
+## 🎯 Usage Guide
+
+### Getting Started
+1. Open the application in your browser
+2. Use **File → New Document** to create a new canvas
+3. Or **File → Open Image** to load an existing image
+
+### Basic Workflow
+1. **Select a Tool** - Click on any tool in the toolbar
+2. **Adjust Settings** - Use sliders for size, opacity, and zoom
+3. **Draw/Edit** - Click and drag on the canvas
+4. **Apply Filters** - Use the Filters menu for effects
+5. **Use History** - Click any history item to restore that state, or use Ctrl+Z/Ctrl+Shift+Z
+6. **Save Your Work** - File → Save As PNG/JPEG
+
+### Working with Layers
+- **Background Layer** - Starts with white color, provides a base
+- **Add New Layers** - Click "+ Add Layer" to create transparent layers on top
+- **Draw on Layers** - Select a layer first, then draw on it
+- **Hide Background** - Toggle visibility to see transparency (checkered pattern)
+- **Layer Order** - Layers stack from bottom to top (Background at bottom)
+
+### Keyboard Shortcuts
+- `Ctrl+N` - New Document
+- `Ctrl+O` - Open Image
+- `Ctrl+S` - Save Image
+- `Ctrl+Z` - Undo
+- `Ctrl+Shift+Z` - Redo
+- `ESC` - Close dialogs/modals
+
+## 📋 Menu Guide
+
+### File Menu
+- **New Document** - Create a blank canvas (800×600)
+- **Open Image...** - Load an image from your computer
+- **Save As PNG...** - Export as PNG format (high quality, lossless)
+- **Save As JPEG...** - Export as JPEG format (90% quality, compressed)
+
+### Edit Menu
+- **Undo** - Revert last action
+- **Redo** - Restore undone action
+- **Clear Canvas** - Clear the current layer
+
+### View Menu
+- **Toggle Grid** - Show/hide alignment grid
+- **Fit to Screen** - Auto-zoom to fit canvas
+- **Actual Size** - Reset zoom to 100%
+- **Zoom In** - Increase zoom level
+- **Zoom Out** - Decrease zoom level
+
+### Filters Menu
+- **Brightness** - Increase image brightness
+- **Contrast** - Enhance contrast
+- **Blur** - Apply blur effect
+- **Sharpen** - Sharpen image details
+- **Grayscale** - Convert to black and white
+- **Invert Colors** - Invert all colors
+- **Sepia** - Apply sepia tone effect
+
+### Layer Menu
+- **New Layer** - Add a new transparent layer
+- **Duplicate Layer** - Copy the current layer
+- **Delete Layer** - Remove the current layer
+- **Merge Down** - Merge with layer below
+- **Flatten Image** - Combine all layers
+
+### Help Menu
+- **About ProPhoto Editor** - View project information and credits
+
+## 🎨 Tool Settings
+
+### Brush/Pencil/Eraser
+- **Size**: 1-100 pixels
+- **Opacity**: 1-100%
+- **Color**: Choose from palette or custom color picker
+
+### Zoom Controls
+- **Range**: 10% - 500%
+- **Quick Actions**: Fit to Screen, Actual Size
+- **Keyboard**: +/- to zoom in/out
+
+### Color Selection
+- **Primary Color**: Main drawing color
+- **Secondary Color**: Alternative color
+- **Palette**: 32 preset colors
+- **Custom**: Use color picker for any color
+
+## 🛠️ Technical Details
+
+### Technologies Used
+- **HTML5 Canvas** - For rendering and drawing operations
+- **CSS3** - Modern styling with flexbox and grid
+- **Vanilla JavaScript** - No frameworks or libraries
+- **Local Storage Ready** - Can be extended to save projects locally
+
+### Browser Compatibility
+- ✅ Chrome 90+
+- ✅ Firefox 88+
+- ✅ Safari 14+
+- ✅ Edge 90+
+
+### Performance
+- Lightweight: Single HTML file (~60KB)
+- Fast: Hardware-accelerated canvas rendering
+- Efficient: Optimized pixel manipulation algorithms
+
+## 📁 Project Structure
+
+```
+photoshop-clone/
+├── index.html          # Main application file (all-in-one)
+├── README.md           # This file
+├── DELIVERY.md         # Project delivery information
+├── test-assets/        # Test resources
+│   ├── test_image.png
+│   └── test_image.json
+├── test_website.py     # Automated test script
+├── test-progress.md    # Testing documentation
+└── test-report.md      # Test results
+```
+
+## 🧪 Testing
+
+The project includes automated tests:
+
+```bash
+# Run automated tests
+python test_website.py
+```
+
+Tests verify:
+- Canvas initialization
+- Tool selection functionality
+- Layer management
+- Filter application
+- Export functionality
+- UI responsiveness
+
+## 🔧 Customization
+
+### Adding Custom Colors
+Modify the color palette in the `initColorPalette()` function:
+
+```javascript
+const colors = [
+    '#yourcolor1', '#yourcolor2', // Add your colors here
+];
+```
+
+### Adjusting Canvas Size
+Change default canvas dimensions in `init()` or `fileActions('new')`:
+
+```javascript
+canvas.width = 1920;  // Your width
+canvas.height = 1080; // Your height
+```
+
+### Adding Custom Filters
+Add new filter cases in the `applyFilter()` function:
+
+```javascript
+case 'yourfilter':
+    // Your filter logic here
+    break;
+```
+
+## 🎨 Transparency & Layers
+
+ProPhoto Editor uses a true transparency system like professional editors:
+
+### Layer Behavior
+- **Background Layer** - Created with solid white color by default (named "Background")
+- **New Layers** - All additional layers start completely transparent
+- **Checkered Pattern** - Transparent areas display a gray/white checkered pattern
+- **Layer Naming** - Background layer = "Background", new layers = "Layer 2", "Layer 3", etc.
+
+### Transparency Features
+- **True Alpha Channel** - Full transparency support on all layers except Background
+- **Visibility Toggle** - Hide the Background layer to see transparency
+- **Delete Background** - Remove the Background layer for a fully transparent canvas
+- **Export** - PNG exports preserve transparency; JPEG exports with white background
+
+## 📝 Known Limitations
+
+- Undo/Redo system has limited history (20 steps)
+- No built-in shape tools (circle, rectangle) yet
+- Selection tools are basic implementations
+- No advanced selection manipulation (transform, feather)
+- File format support limited to common image types
+
+## 🚧 Future Enhancements
+
+- [ ] Advanced selection tools (ellipse, polygon)
+- [ ] Transform tools (rotate, scale, skew)
+- [ ] Additional filters (emboss, edge detect, etc.)
+- [ ] Gradient tool
+- [ ] Pattern/stamp tool
+- [ ] Adjustment layers
+- [ ] Save/load project files
+- [ ] Export with transparency
+- [ ] Batch processing
+- [ ] Plugin system
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see below for details:
+
+```
+MIT License
+
+Copyright (c) 2025 ProPhoto Editor
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## 👨‍💻 Author
+
+**ProPhoto Editor** - A Photoshop clone created with ❤️ by **Kyros Koh**
+
+This browser-based image editor brings professional-grade photo editing capabilities to the web, inspired by Adobe Photoshop's powerful toolset and interface design.
+
+## 🙏 Acknowledgments
+
+- Inspired by Adobe Photoshop and GIMP
+- Created as a demonstration of modern web technologies
+- Built with pure HTML5 Canvas, CSS3, and Vanilla JavaScript
+- Thanks to the open-source community
+
+## 📞 Support
+
+If you encounter any issues or have questions:
+- Open an issue on GitHub
+- Check existing documentation
+- Review the test reports
+
+## 🌟 Show Your Support
+
+If you found this project helpful, please consider:
+- ⭐ Starring the repository
+- 🐛 Reporting bugs
+- 💡 Suggesting new features
+- 📖 Improving documentation
+
+---
+
+**Happy Editing! 🎨**
+
