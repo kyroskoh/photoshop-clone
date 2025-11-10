@@ -813,6 +813,84 @@
             position: relative;
         }
 
+        .modal-content.changelog-modal {
+            max-width: 700px;
+            max-height: 85vh;
+        }
+
+        #changelogContent {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        #changelogContent h2 {
+            color: #fff;
+            font-size: 20px;
+            margin: 24px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #555;
+        }
+
+        #changelogContent h3 {
+            color: #4a9eff;
+            font-size: 16px;
+            margin: 20px 0 8px 0;
+        }
+
+        #changelogContent h4 {
+            color: #fff;
+            font-size: 14px;
+            margin: 16px 0 6px 0;
+            font-weight: 600;
+        }
+
+        #changelogContent ul {
+            margin: 8px 0 8px 20px;
+            padding-left: 0;
+        }
+
+        #changelogContent li {
+            margin: 4px 0;
+            color: #ccc;
+        }
+
+        #changelogContent code {
+            background: #2c2c2c;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #ffaa00;
+            font-size: 12px;
+        }
+
+        #changelogContent a {
+            color: #0078d4;
+            text-decoration: none;
+        }
+
+        #changelogContent a:hover {
+            text-decoration: underline;
+        }
+
+        #changelogContent p {
+            margin: 8px 0;
+            color: #ccc;
+        }
+
+        #changelogContent strong {
+            color: #fff;
+        }
+
+        #changelogContent .version-section {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #444;
+        }
+
+        #changelogContent .version-section:last-child {
+            border-bottom: none;
+        }
+
         .modal-header {
             display: flex;
             align-items: center;
@@ -1021,6 +1099,8 @@
                 Help
                 <div class="dropdown-menu" id="helpMenu">
                     <div class="dropdown-item" onclick="event.stopPropagation(); showAbout(); hideAllDropdowns();">About ProPhoto Editor</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); showChangelog(); hideAllDropdowns();">Change Log</div>
                 </div>
             </div>
         </div>
@@ -1272,6 +1352,8 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
                 
+                <p>New in this version: Save and load projects in custom .prophoto format, automatic session state saving, and project title bar with unsaved changes indicator. Your work is automatically saved to localStorage, so you can resume editing even after closing the browser!</p>
+                
                 <h3>Creator</h3>
                 <p><strong>Kyros Koh</strong><br>
                 Full-stack developer passionate about creating powerful web applications.</p>
@@ -1281,7 +1363,11 @@
                 ✓ Multi-layer support with opacity control<br>
                 ✓ 7 Image filters and effects<br>
                 ✓ Undo/Redo system (20+ steps)<br>
+                ✓ Project save/load (.prophoto format)<br>
+                ✓ Auto-save session state to localStorage<br>
+                ✓ Unsaved changes indicator<br>
                 ✓ Export to PNG/JPEG<br>
+                ✓ Mobile touch support<br>
                 ✓ Completely free and open-source</p>
                 
                 <h3>Links</h3>
@@ -1296,6 +1382,30 @@
             </div>
             <div class="modal-footer">
                 <button class="modal-button" onclick="closeAboutModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Changelog Modal -->
+    <div class="modal-overlay" id="changelogModal" style="display: none;" onclick="closeChangelogModal(event)">
+        <div class="modal-content changelog-modal" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeChangelogModal()">&times;</button>
+            <div class="modal-header">
+                <div class="modal-icon">📋</div>
+                <div class="modal-title-block">
+                    <h2>Change Log</h2>
+                    <p>Version History</p>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="changelogContent" style="max-height: 60vh; overflow-y: auto; padding-right: 8px;">
+                    <div style="text-align: center; padding: 20px; color: #888;">
+                        <p>Loading changelog...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-button" onclick="closeChangelogModal()">Close</button>
             </div>
         </div>
     </div>
@@ -3535,14 +3645,169 @@
             }
         }
 
+        // Show changelog modal
+        function showChangelog() {
+            const modal = document.getElementById('changelogModal');
+            const content = document.getElementById('changelogContent');
+            
+            // Show modal (remove inline style to allow CSS class to work)
+            modal.style.display = '';
+            modal.classList.add('show');
+            
+            // Load changelog content
+            loadChangelog(content);
+        }
+
+        // Close changelog modal
+        function closeChangelogModal(event) {
+            const modal = document.getElementById('changelogModal');
+            if (!event || event.target === modal) {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            }
+        }
+
+        // Load and parse changelog from CHANGELOG.md
+        function loadChangelog(contentElement) {
+            fetch('CHANGELOG.md')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load changelog');
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    const html = parseChangelogMarkdown(text);
+                    contentElement.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error loading changelog:', error);
+                    contentElement.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #ff6b6b;">
+                            <p>Error loading changelog.</p>
+                            <p style="font-size: 12px; margin-top: 8px;">${error.message}</p>
+                        </div>
+                    `;
+                });
+        }
+
+        // Parse markdown changelog to HTML
+        function parseChangelogMarkdown(markdown) {
+            let html = '';
+            const lines = markdown.split('\n');
+            let inVersionSection = false;
+            let inList = false;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // Skip empty lines at the start
+                if (!line && !html) continue;
+                
+                // Version headers [x.x.x] - Date
+                if (line.match(/^## \[[\d.]+\]/)) {
+                    if (inList) {
+                        html += '</ul>';
+                        inList = false;
+                    }
+                    if (inVersionSection) {
+                        html += '</div>';
+                    }
+                    const versionMatch = line.match(/\[([\d.]+)\]/);
+                    const dateMatch = line.match(/- (\d{4}-\d{2}-\d{2})/);
+                    const version = versionMatch ? versionMatch[1] : '';
+                    const date = dateMatch ? dateMatch[1] : '';
+                    
+                    html += `<div class="version-section">`;
+                    html += `<h2>Version ${version}${date ? ` <span style="color: #888; font-size: 14px;">(${date})</span>` : ''}</h2>`;
+                    inVersionSection = true;
+                    continue;
+                }
+                
+                // Subsection headers (### Added, ### Changed, etc.)
+                if (line.match(/^### (Added|Changed|Deprecated|Removed|Fixed|Security|Technical)$/)) {
+                    if (inList) {
+                        html += '</ul>';
+                        inList = false;
+                    }
+                    const section = line.replace('### ', '');
+                    html += `<h3>${section}</h3>`;
+                    continue;
+                }
+                
+                // Bullet points
+                if (line.startsWith('- **') || line.startsWith('- ')) {
+                    if (!inList) {
+                        html += '<ul>';
+                        inList = true;
+                    }
+                    let item = line.replace(/^-\s*/, '');
+                    // Convert **bold** to <strong>
+                    item = item.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    // Convert `code` to <code>
+                    item = item.replace(/`([^`]+)`/g, '<code>$1</code>');
+                    // Convert links [text](url) to <a>
+                    item = item.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+                    html += `<li>${item}</li>`;
+                    continue;
+                }
+                
+                // Close list if we hit a non-list line
+                if (inList && line && !line.startsWith('-')) {
+                    html += '</ul>';
+                    inList = false;
+                }
+                
+                // Regular paragraphs
+                if (line && !line.startsWith('#') && !line.startsWith('---') && !line.match(/^\[[\d.]+\]/)) {
+                    let para = line;
+                    // Convert **bold** to <strong>
+                    para = para.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    // Convert `code` to <code>
+                    para = para.replace(/`([^`]+)`/g, '<code>$1</code>');
+                    // Convert links [text](url) to <a>
+                    para = para.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+                    html += `<p>${para}</p>`;
+                    continue;
+                }
+                
+                // Horizontal rules
+                if (line.startsWith('---')) {
+                    if (inList) {
+                        html += '</ul>';
+                        inList = false;
+                    }
+                    html += '<hr style="border: none; border-top: 1px solid #555; margin: 20px 0;">';
+                    continue;
+                }
+            }
+            
+            // Close any open tags
+            if (inList) {
+                html += '</ul>';
+            }
+            if (inVersionSection) {
+                html += '</div>';
+            }
+            
+            return html || '<p style="color: #888;">No changelog content available.</p>';
+        }
+
         // Close modal with ESC key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 const restoreDialog = document.getElementById('restoreDialog');
+                const changelogModal = document.getElementById('changelogModal');
+                const aboutModal = document.getElementById('aboutModal');
+                
                 if (restoreDialog && restoreDialog.classList.contains('show')) {
                     // ESC on restore dialog starts new session
                     startNewSession();
-                } else {
+                } else if (changelogModal && changelogModal.classList.contains('show')) {
+                    // ESC on changelog modal closes it
+                    closeChangelogModal();
+                } else if (aboutModal && aboutModal.classList.contains('show')) {
+                    // ESC on about modal closes it
                     closeAboutModal();
                 }
             }

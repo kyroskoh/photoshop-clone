@@ -51,6 +51,9 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Grid Overlay** - Toggle grid for precise alignment
 - **Color Palette** - 32 predefined colors + custom color picker
 - **Export Options** - Save as PNG or JPEG
+- **Project Management** - Save and load projects in custom .prophoto format
+- **Auto-Save** - Automatic session state saving to localStorage (resume work later)
+- **Unsaved Changes Indicator** - Visual indicator (*) shows when project has unsaved changes
 - **Keyboard Shortcuts** - For faster workflow
 - **Responsive Design** - Works on different screen sizes
 - **Mobile Touch Support** - Full touch support for drawing, brushing, and all tools on mobile devices
@@ -97,7 +100,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 3. **Draw/Edit** - Click and drag on the canvas
 4. **Apply Filters** - Use the Filters menu for effects
 5. **Use History** - Click any history item to restore that state, or use Ctrl+Z/Ctrl+Shift+Z
-6. **Save Your Work** - File → Save As PNG/JPEG
+6. **Save Your Work** - File → Save Project to save as .prophoto file, or File → Save As PNG/JPEG to export image
 
 ### Working with Layers
 - **Background Layer** - Starts with white color, provides a base
@@ -127,6 +130,8 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 ### File Menu
 - **New Document** - Create a blank canvas (800×600)
 - **Open Image...** - Load an image from your computer
+- **Save Project...** - Save project as .prophoto file (includes all layers, history, settings)
+- **Load Project...** - Load a previously saved .prophoto project file
 - **Save As PNG...** - Export as PNG format (high quality, lossless)
 - **Save As JPEG...** - Export as JPEG format (90% quality, compressed)
 
@@ -185,7 +190,9 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **HTML5 Canvas** - For rendering and drawing operations
 - **CSS3** - Modern styling with flexbox and grid
 - **Vanilla JavaScript** - No frameworks or libraries
-- **Local Storage Ready** - Can be extended to save projects locally
+- **LocalStorage API** - Automatic session state persistence
+- **File API** - Save/load project files (.prophoto format)
+- **XOR Encoding** - Custom file format encryption for project files
 
 ### Browser Compatibility
 - ✅ Chrome 90+ (Desktop & Mobile)
@@ -312,6 +319,35 @@ ProPhoto Editor uses a true transparency system like professional editors:
 - **Delete Background** - Remove the Background layer for a fully transparent canvas
 - **Export** - PNG exports preserve transparency; JPEG exports with white background
 
+## 💾 Project Management
+
+ProPhoto Editor includes comprehensive project management features:
+
+### Project Title Bar
+- **Project Name Display** - Shows current project name (default: "Untitled")
+- **Unsaved Changes Indicator** - Asterisk (*) appears when project has unsaved changes
+- **Auto-Update** - Title updates automatically when project is saved or loaded
+
+### Save/Load Projects
+- **Save Project** - Save complete project state as .prophoto file
+  - Includes all layers, history, settings, colors, and tool states
+  - Custom XOR-encoded file format
+  - Prompts for project name if saving "Untitled" project
+- **Load Project** - Restore previously saved .prophoto files
+  - Fully restores all project data including layers and history
+  - Project name is restored from saved file
+
+### Auto-Save & Session State
+- **Automatic Saving** - Session state saves to localStorage automatically:
+  - After 1 second of inactivity (debounced)
+  - On page unload
+  - On visibility change (tab switch)
+- **Resume Work** - When returning to the page:
+  - Restore dialog appears if saved state exists
+  - Shows last saved time, canvas size, and layer count
+  - Choose to restore previous work or start new session
+- **Project Name Persistence** - Project name is saved with session state
+
 ## 📝 Known Limitations
 
 - Undo/Redo system has limited history (20 steps)
@@ -328,10 +364,11 @@ ProPhoto Editor uses a true transparency system like professional editors:
 - [ ] Gradient tool
 - [ ] Pattern/stamp tool
 - [ ] Adjustment layers
-- [ ] Save/load project files
 - [ ] Export with transparency
 - [ ] Batch processing
 - [ ] Plugin system
+- [ ] Cloud save integration
+- [ ] Project templates
 
 ## 🤝 Contributing
 
