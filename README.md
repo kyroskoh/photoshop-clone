@@ -193,6 +193,9 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 ```
 photoshop-clone/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml  # GitHub Pages deployment workflow
 ├── index.html          # Main application file (all-in-one)
 ├── README.md           # This file
 ├── DELIVERY.md         # Project delivery information
@@ -203,6 +206,40 @@ photoshop-clone/
 ├── test-progress.md    # Testing documentation
 └── test-report.md      # Test results
 ```
+
+## 🚀 Deployment
+
+### GitHub Pages (Automatic)
+
+This project includes a GitHub Actions workflow that automatically deploys to GitHub Pages:
+
+1. **Push to main/master branch** - Deployment triggers automatically
+2. **Manual deployment** - Use the "Actions" tab → "Deploy to GitHub Pages" → "Run workflow"
+
+#### First-Time Setup:
+1. Go to your repository **Settings** → **Pages**
+2. Under "Source", select **GitHub Actions**
+3. Push code to trigger deployment
+4. Your site will be live at `https://kyroskoh.github.io/photoshop-clone/`
+
+The workflow file is located at `.github/workflows/deploy.yml`
+
+### Local Deployment
+
+Run locally with a simple HTTP server:
+
+```bash
+# Python 3
+python -m http.server 8000
+
+# Python 2
+python -m SimpleHTTPServer 8000
+
+# Node.js (with http-server)
+npx http-server
+```
+
+Then visit `http://localhost:8000`
 
 ## 🧪 Testing
 
