@@ -862,9 +862,12 @@
             border-radius: 8px;
             padding: 32px;
             max-width: 500px;
+            max-height: 90vh;
             width: 90%;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
             position: relative;
+            display: flex;
+            flex-direction: column;
         }
 
         .modal-content.changelog-modal {
@@ -981,6 +984,33 @@
             color: #ccc;
             line-height: 1.6;
             margin-bottom: 24px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+            padding-right: 8px;
+            margin-right: 8px;
+            /* Firefox scrollbar */
+            scrollbar-width: thin;
+            scrollbar-color: #555 #2c2c2c;
+        }
+
+        /* Modal body scrollbar */
+        .modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: #2c2c2c;
+            border-radius: 4px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #666;
         }
 
         .modal-body h3 {
@@ -1088,6 +1118,7 @@
             flex-direction: column;
             gap: 20px;
             max-width: 500px;
+            padding-bottom: 8px;
         }
 
         .size-presets {
@@ -1202,7 +1233,10 @@
             display: flex;
             gap: 12px;
             justify-content: flex-end;
-            margin-top: 8px;
+            margin-top: 0;
+            padding-top: 16px;
+            border-top: 1px solid #555;
+            flex-shrink: 0;
         }
 
         .new-document-buttons .modal-button {
@@ -1673,12 +1707,11 @@
                             </button>
                         </div>
                     </div>
-
-                    <div class="new-document-buttons">
-                        <button class="modal-button secondary" onclick="closeNewDocumentDialog()">Cancel</button>
-                        <button class="modal-button" onclick="createNewDocumentFromDialog()">Create</button>
-                    </div>
                 </div>
+            </div>
+            <div class="new-document-buttons">
+                <button class="modal-button secondary" id="cancelNewDocBtn">Cancel</button>
+                <button class="modal-button" id="createNewDocBtn">Create</button>
             </div>
         </div>
     </div>
@@ -1760,6 +1793,9 @@
             
             // Add event listeners
             addEventListeners();
+            
+            // Initialize new document dialog button listeners
+            setupNewDocumentDialogListeners();
             
             // Initialize tool panel dragging
             initToolPanelDrag();
@@ -1933,10 +1969,11 @@
             document.getElementById('customHeight').value = 600;
             updateOrientationButtons();
             
-            // Update create button
-            const createBtn = dialog.querySelector('.new-document-buttons .modal-button:last-child');
-            createBtn.textContent = 'Create';
-            createBtn.onclick = createNewDocumentFromDialog;
+            // Update create button text
+            const createBtn = document.getElementById('createNewDocBtn');
+            if (createBtn) {
+                createBtn.textContent = 'Create';
+            }
             
             // Show dialog
             dialog.style.display = '';
@@ -1998,10 +2035,11 @@
             }
             updateOrientationButtons();
             
-            // Update create button
-            const createBtn = dialog.querySelector('.new-document-buttons .modal-button:last-child');
-            createBtn.textContent = 'Resize';
-            createBtn.onclick = resizeCanvasFromDialog;
+            // Update create button text
+            const createBtn = document.getElementById('createNewDocBtn');
+            if (createBtn) {
+                createBtn.textContent = 'Resize';
+            }
             
             // Show dialog
             dialog.style.display = '';
@@ -2752,6 +2790,31 @@
             
             // Prevent context menu
             canvas.addEventListener('contextmenu', e => e.preventDefault());
+        }
+
+        // Setup new document dialog button listeners
+        function setupNewDocumentDialogListeners() {
+            const createBtn = document.getElementById('createNewDocBtn');
+            const cancelBtn = document.getElementById('cancelNewDocBtn');
+            
+            if (createBtn) {
+                createBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const btnText = createBtn.textContent.trim();
+                    if (btnText === 'Create') {
+                        createNewDocumentFromDialog();
+                    } else if (btnText === 'Resize') {
+                        resizeCanvasFromDialog();
+                    }
+                });
+            }
+            
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    closeNewDocumentDialog();
+                });
+            }
         }
 
         // Get coordinates from mouse or touch event
