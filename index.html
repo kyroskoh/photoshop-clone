@@ -1523,6 +1523,20 @@
             if (savedState) {
                 try {
                     const state = JSON.parse(savedState);
+                    
+                    // Check if this is just a new document (only "Document Created" in history)
+                    const isNewDocument = state.history && 
+                                         state.history.length === 1 && 
+                                         state.history[0] === 'Document Created';
+                    
+                    if (isNewDocument) {
+                        // This is just a fresh document with no actual work, start new session
+                        console.log('Saved state is just a new document, starting fresh');
+                        clearSavedState();
+                        initializeNewDocument();
+                        return;
+                    }
+                    
                     // Render initial background while dialog is shown
                     renderLayers();
                     updateLayerList();
