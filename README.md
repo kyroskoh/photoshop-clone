@@ -53,6 +53,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Export Options** - Save as PNG or JPEG
 - **Keyboard Shortcuts** - For faster workflow
 - **Responsive Design** - Works on different screen sizes
+- **Mobile Touch Support** - Full touch support for drawing, brushing, and all tools on mobile devices
 
 ## 🚀 Getting Started
 
@@ -104,6 +105,14 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Draw on Layers** - Select a layer first, then draw on it
 - **Hide Background** - Toggle visibility to see transparency (checkered pattern)
 - **Layer Order** - Layers stack from bottom to top (Background at bottom)
+
+### Mobile Usage
+- **Touch Drawing** - Use your finger to draw, brush, and paint just like with a mouse
+- **All Tools Work** - Brush, Pencil, Eraser, Spray, Fill, and all other tools support touch
+- **Touch-Friendly UI** - Larger touch targets (44px minimum) for easy interaction
+- **Prevent Scrolling** - Touch events are optimized to prevent accidental page scrolling
+- **Pan & Zoom** - Use Move tool with touch to pan the canvas
+- **Works Offline** - No internet required after initial load
 
 ### Keyboard Shortcuts
 - `Ctrl+N` - New Document
@@ -179,10 +188,11 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Local Storage Ready** - Can be extended to save projects locally
 
 ### Browser Compatibility
-- ✅ Chrome 90+
-- ✅ Firefox 88+
-- ✅ Safari 14+
-- ✅ Edge 90+
+- ✅ Chrome 90+ (Desktop & Mobile)
+- ✅ Firefox 88+ (Desktop & Mobile)
+- ✅ Safari 14+ (Desktop & iOS)
+- ✅ Edge 90+ (Desktop & Mobile)
+- ✅ Mobile browsers (iOS Safari, Chrome Mobile, Samsung Internet)
 
 ### Performance
 - Lightweight: Single HTML file (~60KB)
