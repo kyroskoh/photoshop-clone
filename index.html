@@ -448,8 +448,13 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            cursor: pointer;
+            cursor: grab;
             transition: background 0.2s;
+            position: relative;
+        }
+
+        .layer-item:active {
+            cursor: grabbing;
         }
 
         .layer-item:hover {
@@ -458,6 +463,21 @@
 
         .layer-item.active {
             background: #0078d4;
+        }
+
+        .layer-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .layer-item.drag-over {
+            border-top: 2px solid #4a9eff;
+            background: #555;
+        }
+
+        .layer-item.drag-over-bottom {
+            border-bottom: 2px solid #4a9eff;
+            background: #555;
         }
 
         .layer-preview {
@@ -475,6 +495,25 @@
         .layer-name {
             font-size: 12px;
             font-weight: 500;
+            cursor: text;
+            user-select: none;
+        }
+
+        .layer-name:hover {
+            color: #4a9eff;
+        }
+
+        .layer-name-input {
+            background: #2c2c2c;
+            border: 1px solid #0078d4;
+            border-radius: 3px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 2px 4px;
+            width: 100%;
+            outline: none;
+            font-family: inherit;
         }
 
         .layer-type {
@@ -1488,6 +1527,8 @@
         let developerMode = false;
         let developerModeClickCount = 0;
         let developerModeClickTimeout = null;
+        let draggingLayerIndex = -1;
+        let justDragged = false;
 
         // Initialize the editor
         function init() {
@@ -1548,10 +1589,10 @@
                 try {
                     const state = JSON.parse(savedState);
                     
-                    // Check if this is just a new document (only "Document Created" in history)
+                    // Check if this is just a new document (only "Document Created" or "New Document" in history)
                     const isNewDocument = state.history && 
                                          state.history.length === 1 && 
-                                         state.history[0] === 'Document Created';
+                                         (state.history[0] === 'Document Created' || state.history[0] === 'New Document');
                     
                     if (isNewDocument) {
                         // This is just a fresh document with no actual work, start new session
@@ -2715,22 +2756,227 @@
             layers.forEach((layer, index) => {
                 const item = document.createElement('div');
                 item.className = 'layer-item' + (index === currentLayer ? ' active' : '');
+                item.draggable = true;
+                item.dataset.layerIndex = index;
                 
-                item.innerHTML = `
-                    <div class="layer-preview checkered"></div>
-                    <div class="layer-info">
-                        <div class="layer-name">${layer.name}</div>
-                        <div class="layer-type">${layer.opacity < 1 ? `${Math.round(layer.opacity * 100)}% opacity` : 'Normal'}</div>
-                    </div>
-                    <div class="layer-controls">
-                        <button class="layer-btn" onclick="toggleLayerVisibility(${index})">${layer.visible ? '👁' : '🚫'}</button>
-                        <button class="layer-btn" onclick="deleteLayer(${index})">🗑</button>
-                    </div>
-                `;
+                // Drag and drop handlers
+                item.ondragstart = (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', index.toString());
+                    draggingLayerIndex = index;
+                    item.classList.add('dragging');
+                };
                 
-                item.onclick = () => selectLayer(index);
+                item.ondragend = (e) => {
+                    item.classList.remove('dragging');
+                    justDragged = true;
+                    draggingLayerIndex = -1;
+                    // Remove all drag-over classes
+                    document.querySelectorAll('.layer-item').forEach(li => {
+                        li.classList.remove('drag-over', 'drag-over-bottom');
+                    });
+                    // Reset flag after a short delay
+                    setTimeout(() => {
+                        justDragged = false;
+                    }, 100);
+                };
+                
+                item.ondragover = (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    
+                    if (draggingLayerIndex === index || draggingLayerIndex === -1) return;
+                    
+                    // Remove all drag-over classes
+                    document.querySelectorAll('.layer-item').forEach(li => {
+                        li.classList.remove('drag-over', 'drag-over-bottom');
+                    });
+                    
+                    // Determine if we're dragging over the top or bottom half
+                    const rect = item.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    const midPoint = rect.height / 2;
+                    
+                    if (y < midPoint) {
+                        item.classList.add('drag-over');
+                    } else {
+                        item.classList.add('drag-over-bottom');
+                    }
+                };
+                
+                item.ondragleave = (e) => {
+                    // Only remove classes if we're actually leaving (not entering a child)
+                    if (!item.contains(e.relatedTarget)) {
+                        item.classList.remove('drag-over', 'drag-over-bottom');
+                    }
+                };
+                
+                item.ondrop = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    if (draggingLayerIndex === index || draggingLayerIndex === -1) return;
+                    
+                    // Determine drop position
+                    const rect = item.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    const midPoint = rect.height / 2;
+                    const dropIndex = y < midPoint ? index : index + 1;
+                    
+                    // Reorder layers
+                    reorderLayers(draggingLayerIndex, dropIndex);
+                };
+                
+                const layerNameDiv = document.createElement('div');
+                layerNameDiv.className = 'layer-name';
+                layerNameDiv.textContent = layer.name;
+                
+                // Handle double-click for renaming
+                layerNameDiv.ondblclick = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    renameLayer(index, layerNameDiv);
+                };
+                
+                // Prevent single click on name from selecting layer
+                layerNameDiv.onclick = (e) => {
+                    e.stopPropagation();
+                };
+                
+                const layerInfo = document.createElement('div');
+                layerInfo.className = 'layer-info';
+                layerInfo.appendChild(layerNameDiv);
+                
+                const layerType = document.createElement('div');
+                layerType.className = 'layer-type';
+                layerType.textContent = layer.opacity < 1 ? `${Math.round(layer.opacity * 100)}% opacity` : 'Normal';
+                layerInfo.appendChild(layerType);
+                
+                const layerPreview = document.createElement('div');
+                layerPreview.className = 'layer-preview checkered';
+                
+                const layerControls = document.createElement('div');
+                layerControls.className = 'layer-controls';
+                
+                const visibilityBtn = document.createElement('button');
+                visibilityBtn.className = 'layer-btn';
+                visibilityBtn.textContent = layer.visible ? '👁' : '🚫';
+                visibilityBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleLayerVisibility(index);
+                };
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'layer-btn';
+                deleteBtn.textContent = '🗑';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteLayer(index);
+                };
+                
+                layerControls.appendChild(visibilityBtn);
+                layerControls.appendChild(deleteBtn);
+                
+                item.appendChild(layerPreview);
+                item.appendChild(layerInfo);
+                item.appendChild(layerControls);
+                
+                item.onclick = (e) => {
+                    // Don't select if we just finished dragging
+                    if (justDragged) {
+                        return;
+                    }
+                    
+                    // Don't select if clicking on the layer name (let double-click handle it)
+                    if (e.target === layerNameDiv || e.target.closest('.layer-name')) {
+                        return;
+                    }
+                    
+                    selectLayer(index);
+                };
                 layerList.appendChild(item);
             });
+        }
+
+        // Reorder layers
+        function reorderLayers(fromIndex, toIndex) {
+            if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= layers.length) return;
+            
+            // Clamp toIndex to valid range
+            toIndex = Math.max(0, Math.min(toIndex, layers.length));
+            
+            // Adjust toIndex if dragging down
+            if (fromIndex < toIndex) {
+                toIndex--;
+            }
+            
+            // Get the layer being moved
+            const [movedLayer] = layers.splice(fromIndex, 1);
+            layers.splice(toIndex, 0, movedLayer);
+            
+            // Update currentLayer index
+            if (currentLayer === fromIndex) {
+                currentLayer = toIndex;
+            } else if (fromIndex < currentLayer && toIndex >= currentLayer) {
+                currentLayer--;
+            } else if (fromIndex > currentLayer && toIndex <= currentLayer) {
+                currentLayer++;
+            }
+            
+            // Update UI
+            updateLayerList();
+            renderLayers();
+            addToHistory(`Layer "${movedLayer.name}" moved`);
+        }
+
+        // Rename layer
+        function renameLayer(index, nameElement) {
+            if (index < 0 || index >= layers.length) return;
+            
+            const oldName = layers[index].name;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'layer-name-input';
+            input.value = oldName;
+            input.style.width = '100%';
+            
+            // Replace the name element with input
+            const parent = nameElement.parentElement;
+            parent.replaceChild(input, nameElement);
+            
+            // Focus and select text
+            input.focus();
+            input.select();
+            
+            let cancelled = false;
+            
+            // Handle save on Enter or blur
+            const saveRename = () => {
+                if (cancelled) return;
+                
+                const newName = input.value.trim();
+                if (newName && newName !== oldName) {
+                    layers[index].name = newName;
+                    addToHistory(`Layer renamed to "${newName}"`);
+                    updateLayerList();
+                } else {
+                    // Restore original if empty or unchanged
+                    updateLayerList();
+                }
+            };
+            
+            input.onblur = saveRename;
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    cancelled = false;
+                    input.blur();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelled = true;
+                    updateLayerList();
+                }
+            };
         }
 
         function selectLayer(index) {
