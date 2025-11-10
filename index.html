@@ -1374,6 +1374,9 @@
             if (savedState) {
                 try {
                     const state = JSON.parse(savedState);
+                    // Render initial background while dialog is shown
+                    renderLayers();
+                    updateLayerList();
                     // Show restore dialog
                     showRestoreDialog(state);
                 } catch (e) {
@@ -1467,11 +1470,36 @@
 
         // Initialize new document
         function initializeNewDocument() {
+            // Set canvas size
+            canvas.width = 800;
+            canvas.height = 600;
+            gridCanvas.width = canvas.width;
+            gridCanvas.height = canvas.height;
+            
+            // Create white background layer
+            const backgroundLayer = createLayerCanvas();
+            const bgCtx = backgroundLayer.getContext('2d');
+            bgCtx.fillStyle = '#ffffff';
+            bgCtx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Initialize layers with background
+            layers = [{
+                canvas: backgroundLayer,
+                name: 'Background',
+                visible: true,
+                opacity: 1
+            }];
+            
+            currentLayer = 0;
+            
             // Render initial canvas
             renderLayers();
             updateLayerList();
             
             // Save initial state and add to history
+            history = [];
+            historyStates = [];
+            historyIndex = -1;
             history.push('Document Created');
             historyStates.push(saveCanvasState());
             historyIndex = 0;
