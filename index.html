@@ -60,6 +60,27 @@
             background: #555;
         }
 
+        /* Title Bar */
+        .title-bar {
+            background: #353535;
+            padding: 6px 16px;
+            border-bottom: 1px solid #555;
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        .title-bar .project-title {
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .title-bar .unsaved-indicator {
+            color: #ffaa00;
+            margin-left: 4px;
+        }
+
         /* Main Tool Bar */
         .toolbar {
             background: #3c3c3c;
@@ -940,6 +961,9 @@
                     <div class="dropdown-item" onclick="event.stopPropagation(); fileActions('new'); hideAllDropdowns();">New Document</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); fileActions('open'); hideAllDropdowns();">Open Image...</div>
                     <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); saveProject(); hideAllDropdowns();">Save Project...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); loadProject(); hideAllDropdowns();">Load Project...</div>
+                    <div class="dropdown-divider"></div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); exportImage(); hideAllDropdowns();">Save As PNG...</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); saveAsJPEG(); hideAllDropdowns();">Save As JPEG...</div>
                 </div>
@@ -999,6 +1023,14 @@
                     <div class="dropdown-item" onclick="event.stopPropagation(); showAbout(); hideAllDropdowns();">About ProPhoto Editor</div>
                 </div>
             </div>
+        </div>
+
+        <!-- Title Bar -->
+        <div class="title-bar">
+            <span>ProPhoto Editor</span>
+            <span style="margin: 0 8px;">-</span>
+            <span class="project-title" id="projectTitle">Untitled</span>
+            <span class="unsaved-indicator" id="unsavedIndicator" style="display: none;">*</span>
         </div>
 
         <!-- Main Toolbar -->
@@ -1188,8 +1220,8 @@
                     <!-- Color Palette -->
                     <div style="margin-top: 16px;">
                         <div class="panel-title" style="font-size: 12px; margin-bottom: 8px;">Color Palette</div>
-                        <div class="color-palette" id="colorPalette">
-                            <!-- Colors will be populated by JavaScript -->
+                    <div class="color-palette" id="colorPalette">
+                        <!-- Colors will be populated by JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -1219,8 +1251,9 @@
         </div>
     </div>
 
-    <!-- Hidden File Input -->
+    <!-- Hidden File Inputs -->
     <input type="file" class="file-input" id="fileInput" accept="image/*" onchange="loadImage(event)">
+    <input type="file" class="file-input" id="projectFileInput" accept=".prophoto" onchange="handleProjectLoad(event)" style="display: none;">
 
     <!-- About Modal -->
     <div class="modal-overlay" id="aboutModal" onclick="closeAboutModal(event)">
@@ -1321,6 +1354,9 @@
         let lastTouchX = 0;
         let lastTouchY = 0;
         let saveTimeout = null;
+        let projectName = 'Untitled';
+        let hasUnsavedChanges = false;
+        let currentProjectPath = null; // Store the file path if saved
 
         // Initialize the editor
         function init() {
@@ -1354,6 +1390,9 @@
             // Initialize color swatches
             updatePrimaryColorSwatch(primaryColor);
             updateSecondaryColorSwatch(secondaryColor);
+            
+            // Initialize project title
+            updateProjectTitle();
             
             // Add event listeners
             addEventListeners();
@@ -1437,7 +1476,8 @@
                 layersSpan.textContent = 'No layers';
             }
             
-            // Show dialog
+            // Show dialog (remove inline style to allow CSS class to work)
+            dialog.style.display = '';
             dialog.classList.add('show');
         }
 
@@ -1445,6 +1485,7 @@
         function restorePreviousWork() {
             const dialog = document.getElementById('restoreDialog');
             dialog.classList.remove('show');
+            dialog.style.display = 'none';
             
             if (loadEditorState()) {
                 showNotification('Work restored successfully', 2000);
@@ -1458,6 +1499,7 @@
         function startNewSession() {
             const dialog = document.getElementById('restoreDialog');
             dialog.classList.remove('show');
+            dialog.style.display = 'none';
             
             // Clear saved state
             clearSavedState();
@@ -1504,6 +1546,61 @@
             historyStates.push(saveCanvasState());
             historyIndex = 0;
             updateHistoryDisplay();
+            
+            // Reset project name
+            projectName = 'Untitled';
+            currentProjectPath = null;
+            markSaved();
+            updateProjectTitle();
+            
+            // Save initial state to localStorage
+            setTimeout(() => {
+                saveEditorState(true);
+            }, 100);
+        }
+
+        // Update project title in title bar
+        function updateProjectTitle() {
+            const titleElement = document.getElementById('projectTitle');
+            const unsavedIndicator = document.getElementById('unsavedIndicator');
+            
+            if (titleElement) {
+                titleElement.textContent = projectName;
+            }
+            
+            if (unsavedIndicator) {
+                unsavedIndicator.style.display = hasUnsavedChanges ? 'inline' : 'none';
+            }
+        }
+
+        // Mark project as having unsaved changes
+        function markUnsaved() {
+            hasUnsavedChanges = true;
+            updateProjectTitle();
+        }
+
+        // Mark project as saved
+        function markSaved() {
+            hasUnsavedChanges = false;
+            updateProjectTitle();
+        }
+
+        // XOR encoding/decoding for .prophoto file format
+        function xorEncode(data, key) {
+            const dataArray = new Uint8Array(data);
+            const keyArray = new Uint8Array(new TextEncoder().encode(key));
+            const result = new Uint8Array(dataArray.length);
+            
+            for (let i = 0; i < dataArray.length; i++) {
+                result[i] = dataArray[i] ^ keyArray[i % keyArray.length];
+            }
+            
+            return result;
+        }
+
+        function xorDecode(encodedData, key) {
+            // XOR is symmetric, so encoding and decoding are the same
+            return xorEncode(encodedData, key);
         }
 
         // Save editor state to localStorage
@@ -1526,9 +1623,16 @@
         // Perform the actual save operation
         function performSave() {
             try {
+                // Only save if we have layers
+                if (!layers || layers.length === 0) {
+                    console.warn('No layers to save');
+                    return false;
+                }
+                
                 const state = {
                     version: '1.0',
                     timestamp: Date.now(),
+                    projectName: projectName,
                     canvas: {
                         width: canvas.width,
                         height: canvas.height
@@ -1550,10 +1654,10 @@
                         opacity: opacity,
                         zoom: zoom
                     },
-                    history: history,
-                    historyIndex: historyIndex,
-                    historyStates: historyStates.map(state => ({
-                        layers: state.layers.map(layer => ({
+                    history: history || [],
+                    historyIndex: historyIndex !== undefined ? historyIndex : -1,
+                    historyStates: (historyStates || []).map(state => ({
+                        layers: (state.layers || []).map(layer => ({
                             imageData: layer.imageData,
                             name: layer.name,
                             visible: layer.visible,
@@ -1563,7 +1667,9 @@
                     }))
                 };
                 
-                localStorage.setItem('proPhotoEditorState', JSON.stringify(state));
+                const stateString = JSON.stringify(state);
+                localStorage.setItem('proPhotoEditorState', stateString);
+                console.log('State saved successfully', { layers: state.layers.length, timestamp: new Date(state.timestamp).toLocaleString() });
                 return true;
             } catch (e) {
                 console.error('Error saving editor state:', e);
@@ -1580,10 +1686,15 @@
             try {
                 const savedState = localStorage.getItem('proPhotoEditorState');
                 if (!savedState) {
+                    console.log('No saved state found in localStorage');
                     return false;
                 }
                 
                 const state = JSON.parse(savedState);
+                console.log('Loading saved state', { 
+                    layers: state.layers?.length || 0, 
+                    timestamp: state.timestamp ? new Date(state.timestamp).toLocaleString() : 'unknown' 
+                });
                 
                 // Restore canvas size
                 canvas.width = state.canvas.width;
@@ -1618,6 +1729,12 @@
                         if (loadedLayers === totalLayers) {
                             // All layers loaded, restore other state
                             currentLayer = state.currentLayer || 0;
+                            
+                            // Restore project name
+                            if (state.projectName) {
+                                projectName = state.projectName;
+                                updateProjectTitle();
+                            }
                             
                             // Restore colors
                             if (state.colors) {
@@ -1669,15 +1786,18 @@
                             updateLayerList();
                             renderLayers();
                             updateHistoryDisplay();
+                            
+                            console.log('State restored successfully');
                         }
                     };
                     img.onerror = function() {
-                        console.error('Error loading layer image');
+                        console.error('Error loading layer image', layerData);
                         loadedLayers++;
                         if (loadedLayers === totalLayers) {
                             // Even if some layers failed, try to continue
                             updateLayerList();
                             renderLayers();
+                            console.log('State restored with some errors');
                         }
                     };
                     img.src = layerData.imageData;
@@ -1939,7 +2059,7 @@
             // Prevent context menu
             canvas.addEventListener('contextmenu', e => e.preventDefault());
         }
-        
+
         // Get coordinates from mouse or touch event
         function getEventCoordinates(e) {
             const rect = canvas.getBoundingClientRect();
@@ -2311,8 +2431,14 @@
             }
             
             updateHistoryDisplay();
+            updateUndoRedoButtons();
             
-            // Auto-save state after adding to history
+            // Mark as unsaved (except for initial document creation or project load)
+            if (action !== 'Document Created' && action !== 'Project Loaded' && action !== 'New Document') {
+                markUnsaved();
+            }
+            
+            // Save state to localStorage after each action
             saveEditorState();
         }
 
@@ -2804,6 +2930,12 @@
                 // Clear saved state for new document
                 clearSavedState();
                 
+                // Reset project name
+                projectName = 'Untitled';
+                currentProjectPath = null;
+                markSaved();
+                updateProjectTitle();
+                
                 addToHistory('New Document');
                 updateLayerList();
                 renderLayers();
@@ -2843,6 +2975,13 @@
                         
                         // Clear old saved state and save new
                         clearSavedState();
+                        
+                        // Reset project name
+                        projectName = 'Untitled';
+                        currentProjectPath = null;
+                        markSaved();
+                        updateProjectTitle();
+                        
                         addToHistory('Image Loaded');
                         updateLayerList();
                         renderLayers();
@@ -2890,6 +3029,261 @@
             link.download = 'image.jpg';
             link.href = canvas.toDataURL('image/jpeg', 0.9);
             link.click();
+        }
+
+        // Save project as .prophoto file
+        function saveProject() {
+            // Prompt for project name if it's "Untitled"
+            let nameToSave = projectName;
+            if (projectName === 'Untitled' || !projectName) {
+                const userInput = prompt('Enter project name:', projectName || 'Untitled');
+                if (userInput === null) {
+                    // User cancelled
+                    return;
+                }
+                nameToSave = userInput.trim() || 'Untitled';
+            }
+            
+            // Update project name
+            projectName = nameToSave;
+            updateProjectTitle();
+            
+            try {
+                // Prepare project data
+                const projectData = {
+                    version: '1.0',
+                    timestamp: Date.now(),
+                    projectName: projectName,
+                    canvas: {
+                        width: canvas.width,
+                        height: canvas.height
+                    },
+                    layers: layers.map(layer => ({
+                        imageData: layer.canvas.toDataURL('image/png'),
+                        name: layer.name,
+                        visible: layer.visible,
+                        opacity: layer.opacity
+                    })),
+                    currentLayer: currentLayer,
+                    colors: {
+                        primary: primaryColor,
+                        secondary: secondaryColor
+                    },
+                    tool: currentTool,
+                    settings: {
+                        brushSize: brushSize,
+                        opacity: opacity,
+                        zoom: zoom
+                    },
+                    history: history,
+                    historyIndex: historyIndex,
+                    historyStates: historyStates.map(state => ({
+                        layers: state.layers.map(layer => ({
+                            imageData: layer.imageData,
+                            name: layer.name,
+                            visible: layer.visible,
+                            opacity: layer.opacity
+                        })),
+                        currentLayer: state.currentLayer
+                    }))
+                };
+
+                // Convert to JSON string
+                const jsonString = JSON.stringify(projectData);
+                
+                // Convert to Uint8Array
+                const encoder = new TextEncoder();
+                const dataArray = encoder.encode(jsonString);
+                
+                // XOR encode with a consistent key
+                const key = 'ProPhotoEditor2025' + projectName;
+                const encodedData = xorEncode(dataArray, key);
+                
+                // Create blob and download
+                const blob = new Blob([encodedData], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = projectName + '.prophoto';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                // Mark as saved
+                markSaved();
+                showNotification('Project saved successfully', 2000);
+            } catch (e) {
+                console.error('Error saving project:', e);
+                alert('Error saving project: ' + e.message);
+            }
+        }
+
+        // Load project from .prophoto file
+        function loadProject() {
+            document.getElementById('projectFileInput').click();
+        }
+
+        // Handle project file load
+        function handleProjectLoad(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.endsWith('.prophoto')) {
+                alert('Invalid file format. Please select a .prophoto file.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    // Read as ArrayBuffer
+                    const arrayBuffer = e.target.result;
+                    const dataArray = new Uint8Array(arrayBuffer);
+                    
+                    // Try to decode with different keys
+                    const filenameWithoutExt = file.name.replace('.prophoto', '');
+                    const defaultKey = 'ProPhotoEditor2025';
+                    
+                    // Try alternative keys
+                    const alternativeKeys = [
+                        defaultKey + filenameWithoutExt, // Try with filename first (most likely)
+                        defaultKey + 'Untitled',         // Try with default name
+                        defaultKey,                      // Try base key
+                        'ProPhotoEditor'                 // Try simple key
+                    ];
+                    
+                    let jsonString = null;
+                    for (const key of alternativeKeys) {
+                        try {
+                            const decodedData = xorDecode(dataArray, key);
+                            const decoder = new TextDecoder();
+                            jsonString = decoder.decode(decodedData);
+                            // Try to parse JSON to verify it's valid
+                            JSON.parse(jsonString);
+                            break;
+                        } catch (err) {
+                            // Try next key
+                            continue;
+                        }
+                    }
+                    
+                    if (!jsonString) {
+                        throw new Error('Could not decode project file. The file may be corrupted.');
+                    }
+                    
+                    const projectData = JSON.parse(jsonString);
+                    
+                    // Restore canvas size
+                    canvas.width = projectData.canvas.width;
+                    canvas.height = projectData.canvas.height;
+                    gridCanvas.width = canvas.width;
+                    gridCanvas.height = canvas.height;
+                    
+                    // Restore project name
+                    projectName = projectData.projectName || file.name.replace('.prophoto', '');
+                    currentProjectPath = file.name;
+                    
+                    // Restore layers
+                    layers = [];
+                    let loadedLayers = 0;
+                    const totalLayers = projectData.layers.length;
+                    
+                    if (totalLayers === 0) {
+                        throw new Error('Project file contains no layers');
+                    }
+                    
+                    projectData.layers.forEach((layerData, i) => {
+                        const img = new Image();
+                        img.onload = function() {
+                            const newLayer = {
+                                canvas: createLayerCanvas(),
+                                name: layerData.name,
+                                visible: layerData.visible !== undefined ? layerData.visible : true,
+                                opacity: layerData.opacity !== undefined ? layerData.opacity : 1
+                            };
+                            
+                            const layerCtx = newLayer.canvas.getContext('2d');
+                            layerCtx.drawImage(img, 0, 0);
+                            layers[i] = newLayer;
+                            
+                            loadedLayers++;
+                            if (loadedLayers === totalLayers) {
+                                // All layers loaded
+                                currentLayer = projectData.currentLayer || 0;
+                                
+                                // Restore colors
+                                if (projectData.colors) {
+                                    primaryColor = projectData.colors.primary || '#000000';
+                                    secondaryColor = projectData.colors.secondary || '#ffffff';
+                                    updatePrimaryColorSwatch(primaryColor);
+                                    updateSecondaryColorSwatch(secondaryColor);
+                                }
+                                
+                                // Restore tool
+                                if (projectData.tool) {
+                                    selectTool(projectData.tool);
+                                }
+                                
+                                // Restore settings
+                                if (projectData.settings) {
+                                    brushSize = projectData.settings.brushSize || 10;
+                                    opacity = projectData.settings.opacity !== undefined ? projectData.settings.opacity : 1;
+                                    zoom = projectData.settings.zoom || 1;
+                                    
+                                    document.getElementById('sizeSlider').value = brushSize;
+                                    document.getElementById('sizeDisplay').textContent = brushSize;
+                                    document.getElementById('opacitySlider').value = Math.round(opacity * 100);
+                                    document.getElementById('opacityDisplay').textContent = Math.round(opacity * 100);
+                                    document.getElementById('zoomSlider').value = zoom * 100;
+                                    document.getElementById('zoomDisplay').textContent = Math.round(zoom * 100);
+                                    document.getElementById('statusZoom').textContent = Math.round(zoom * 100) + '%';
+                                    updateZoom();
+                                }
+                                
+                                // Restore history
+                                if (projectData.history && projectData.history.length > 0) {
+                                    history = projectData.history;
+                                    historyIndex = projectData.historyIndex !== undefined ? projectData.historyIndex : history.length - 1;
+                                    
+                                    if (projectData.historyStates && projectData.historyStates.length > 0) {
+                                        historyStates = projectData.historyStates;
+                                    }
+                                } else {
+                                    history = ['Project Loaded'];
+                                    historyStates = [saveCanvasState()];
+                                    historyIndex = 0;
+                                }
+                                
+                                // Update UI
+                                updateLayerList();
+                                renderLayers();
+                                updateHistoryDisplay();
+                                updateProjectTitle();
+                                markSaved(); // Project is saved when loaded
+                                
+                                showNotification('Project loaded successfully', 2000);
+                            }
+                        };
+                        img.onerror = function() {
+                            console.error('Error loading layer image');
+                            loadedLayers++;
+                            if (loadedLayers === totalLayers) {
+                                updateLayerList();
+                                renderLayers();
+                                updateProjectTitle();
+                            }
+                        };
+                        img.src = layerData.imageData;
+                    });
+                    
+                } catch (e) {
+                    console.error('Error loading project:', e);
+                    alert('Error loading project: ' + e.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            
+            // Reset file input
+            event.target.value = '';
         }
 
         // Keyboard shortcuts
