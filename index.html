@@ -1081,6 +1081,133 @@
         .restore-dialog-buttons .modal-button {
             min-width: 120px;
         }
+
+        /* New Document Dialog */
+        .new-document-dialog {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 500px;
+        }
+
+        .size-presets {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .size-preset-btn {
+            background: #4c4c4c;
+            border: 2px solid #555;
+            color: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .size-preset-btn:hover {
+            background: #555;
+            border-color: #0078d4;
+        }
+
+        .size-preset-btn.active {
+            background: #0078d4;
+            border-color: #0078d4;
+        }
+
+        .size-preset-btn .preset-name {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .size-preset-btn .preset-size {
+            font-size: 11px;
+            color: #ccc;
+        }
+
+        .custom-size-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+            background: #4c4c4c;
+            border-radius: 4px;
+        }
+
+        .size-input-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .size-input-group label {
+            min-width: 60px;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        .size-input-group input {
+            flex: 1;
+            background: #2c2c2c;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #fff;
+            padding: 8px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .size-input-group input:focus {
+            border-color: #0078d4;
+        }
+
+        .orientation-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .orientation-btn {
+            flex: 1;
+            background: #4c4c4c;
+            border: 2px solid #555;
+            color: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .orientation-btn:hover {
+            background: #555;
+            border-color: #0078d4;
+        }
+
+        .orientation-btn.active {
+            background: #0078d4;
+            border-color: #0078d4;
+        }
+
+        .new-document-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        .new-document-buttons .modal-button {
+            min-width: 100px;
+        }
     </style>
 </head>
 <body>
@@ -1122,6 +1249,8 @@
                     <div class="dropdown-divider"></div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); zoomIn(); hideAllDropdowns();">Zoom In</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); zoomOut(); hideAllDropdowns();">Zoom Out</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); showCanvasSizeDialog(); hideAllDropdowns();">Canvas Size...</div>
                 </div>
             </div>
             <div class="menu-separator"></div>
@@ -1493,6 +1622,64 @@
                     </div>
                 </div>
             </div>
+            </div>
+        </div>
+
+    <!-- New Document Dialog -->
+    <div class="modal-overlay" id="newDocumentDialog" style="display: none;" onclick="closeNewDocumentDialog(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeNewDocumentDialog()">&times;</button>
+            <div class="modal-header">
+                <div class="modal-icon">📄</div>
+                <div class="modal-title-block">
+                    <h2>New Document</h2>
+                    <p>Choose canvas size and orientation</p>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="new-document-dialog">
+                    <!-- Size Presets -->
+                    <div>
+                        <h3 style="color: #fff; font-size: 16px; margin-bottom: 12px;">Preset Sizes</h3>
+                        <div class="size-presets" id="sizePresets">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Custom Size -->
+                    <div class="custom-size-section">
+                        <h3 style="color: #fff; font-size: 16px; margin-bottom: 12px;">Custom Size</h3>
+                        <div class="size-input-group">
+                            <label>Width:</label>
+                            <input type="number" id="customWidth" value="800" min="1" max="10000" step="1">
+                        </div>
+                        <div class="size-input-group">
+                            <label>Height:</label>
+                            <input type="number" id="customHeight" value="600" min="1" max="10000" step="1">
+                        </div>
+                    </div>
+
+                    <!-- Orientation -->
+                    <div>
+                        <h3 style="color: #fff; font-size: 16px; margin-bottom: 12px;">Orientation</h3>
+                        <div class="orientation-group">
+                            <button class="orientation-btn active" id="portraitBtn" onclick="setOrientation('portrait')">
+                                <span>📱</span>
+                                <span>Portrait</span>
+                            </button>
+                            <button class="orientation-btn" id="landscapeBtn" onclick="setOrientation('landscape')">
+                                <span>🖥️</span>
+                                <span>Landscape</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="new-document-buttons">
+                        <button class="modal-button secondary" onclick="closeNewDocumentDialog()">Cancel</button>
+                        <button class="modal-button" onclick="createNewDocumentFromDialog()">Create</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1529,6 +1716,8 @@
         let developerModeClickTimeout = null;
         let draggingLayerIndex = -1;
         let justDragged = false;
+        let currentOrientation = 'landscape'; // 'portrait' or 'landscape'
+        let selectedPreset = null;
 
         // Initialize the editor
         function init() {
@@ -1613,8 +1802,8 @@
                     initializeNewDocument();
                 }
             } else {
-                // No saved state, start new document
-                initializeNewDocument();
+                // No saved state, show new document dialog
+                showNewDocumentDialog();
             }
         }
 
@@ -1693,17 +1882,333 @@
             // Clear saved state
             clearSavedState();
             
-            // Initialize new document
-            initializeNewDocument();
+            // Show new document dialog
+            showNewDocumentDialog();
+        }
+
+        // Show new document dialog
+        function showNewDocumentDialog() {
+            const dialog = document.getElementById('newDocumentDialog');
+            const presetsContainer = document.getElementById('sizePresets');
+            const dialogTitle = dialog.querySelector('.modal-title-block h2');
+            const dialogSubtitle = dialog.querySelector('.modal-title-block p');
             
-            showNotification('Started new session', 2000);
+            // Update dialog title
+            dialogTitle.textContent = 'New Document';
+            dialogSubtitle.textContent = 'Choose canvas size and orientation';
+            
+            // Define preset sizes
+            const presets = [
+                { name: 'Web', width: 1920, height: 1080 },
+                { name: 'HD', width: 1280, height: 720 },
+                { name: 'Square', width: 1080, height: 1080 },
+                { name: 'Instagram Post', width: 1080, height: 1080 },
+                { name: 'Instagram Story', width: 1080, height: 1920 },
+                { name: 'Facebook Cover', width: 1200, height: 630 },
+                { name: 'Twitter Header', width: 1500, height: 500 },
+                { name: 'A4 Portrait', width: 2480, height: 3508 },
+                { name: 'A4 Landscape', width: 3508, height: 2480 },
+                { name: 'Letter Portrait', width: 2550, height: 3300 },
+                { name: 'Letter Landscape', width: 3300, height: 2550 },
+                { name: 'Default', width: 800, height: 600 }
+            ];
+            
+            // Populate presets
+            presetsContainer.innerHTML = '';
+            presets.forEach((preset, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'size-preset-btn';
+                btn.onclick = () => selectPreset(index, preset);
+                btn.innerHTML = `
+                    <span class="preset-name">${preset.name}</span>
+                    <span class="preset-size">${preset.width} × ${preset.height}</span>
+                `;
+                presetsContainer.appendChild(btn);
+            });
+            
+            // Reset to default
+            selectedPreset = null;
+            currentOrientation = 'landscape';
+            document.getElementById('customWidth').value = 800;
+            document.getElementById('customHeight').value = 600;
+            updateOrientationButtons();
+            
+            // Update create button
+            const createBtn = dialog.querySelector('.new-document-buttons .modal-button:last-child');
+            createBtn.textContent = 'Create';
+            createBtn.onclick = createNewDocumentFromDialog;
+            
+            // Show dialog
+            dialog.style.display = '';
+            dialog.classList.add('show');
+        }
+
+        // Show canvas size dialog (for resizing existing canvas)
+        function showCanvasSizeDialog() {
+            const dialog = document.getElementById('newDocumentDialog');
+            const presetsContainer = document.getElementById('sizePresets');
+            const dialogTitle = dialog.querySelector('.modal-title-block h2');
+            const dialogSubtitle = dialog.querySelector('.modal-title-block p');
+            
+            // Update dialog title
+            dialogTitle.textContent = 'Canvas Size';
+            dialogSubtitle.textContent = 'Change canvas dimensions and orientation';
+            
+            // Define preset sizes
+            const presets = [
+                { name: 'Web', width: 1920, height: 1080 },
+                { name: 'HD', width: 1280, height: 720 },
+                { name: 'Square', width: 1080, height: 1080 },
+                { name: 'Instagram Post', width: 1080, height: 1080 },
+                { name: 'Instagram Story', width: 1080, height: 1920 },
+                { name: 'Facebook Cover', width: 1200, height: 630 },
+                { name: 'Twitter Header', width: 1500, height: 500 },
+                { name: 'A4 Portrait', width: 2480, height: 3508 },
+                { name: 'A4 Landscape', width: 3508, height: 2480 },
+                { name: 'Letter Portrait', width: 2550, height: 3300 },
+                { name: 'Letter Landscape', width: 3300, height: 2550 },
+                { name: 'Current', width: canvas.width, height: canvas.height }
+            ];
+            
+            // Populate presets
+            presetsContainer.innerHTML = '';
+            presets.forEach((preset, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'size-preset-btn';
+                btn.onclick = () => selectPreset(index, preset);
+                btn.innerHTML = `
+                    <span class="preset-name">${preset.name}</span>
+                    <span class="preset-size">${preset.width} × ${preset.height}</span>
+                `;
+                presetsContainer.appendChild(btn);
+            });
+            
+            // Set current canvas size
+            selectedPreset = null;
+            document.getElementById('customWidth').value = canvas.width;
+            document.getElementById('customHeight').value = canvas.height;
+            
+            // Determine current orientation
+            if (canvas.width > canvas.height) {
+                currentOrientation = 'landscape';
+            } else if (canvas.height > canvas.width) {
+                currentOrientation = 'portrait';
+            } else {
+                currentOrientation = 'landscape'; // Default for square
+            }
+            updateOrientationButtons();
+            
+            // Update create button
+            const createBtn = dialog.querySelector('.new-document-buttons .modal-button:last-child');
+            createBtn.textContent = 'Resize';
+            createBtn.onclick = resizeCanvasFromDialog;
+            
+            // Show dialog
+            dialog.style.display = '';
+            dialog.classList.add('show');
+        }
+
+        // Close new document dialog
+        function closeNewDocumentDialog(event) {
+            const dialog = document.getElementById('newDocumentDialog');
+            if (!event || event.target === dialog || event.target.classList.contains('modal-close')) {
+                dialog.classList.remove('show');
+                dialog.style.display = 'none';
+            }
+        }
+
+        // Select preset size
+        function selectPreset(index, preset) {
+            selectedPreset = index;
+            
+            // Update preset buttons
+            document.querySelectorAll('.size-preset-btn').forEach((btn, i) => {
+                btn.classList.toggle('active', i === index);
+            });
+            
+            // Update custom inputs
+            document.getElementById('customWidth').value = preset.width;
+            document.getElementById('customHeight').value = preset.height;
+            
+            // Update orientation based on preset
+            if (preset.width > preset.height) {
+                setOrientation('landscape');
+            } else if (preset.height > preset.width) {
+                setOrientation('portrait');
+            }
+        }
+
+        // Set orientation
+        function setOrientation(orientation) {
+            const widthInput = document.getElementById('customWidth');
+            const heightInput = document.getElementById('customHeight');
+            const currentWidth = parseInt(widthInput.value);
+            const currentHeight = parseInt(heightInput.value);
+            
+            // Only swap if dimensions don't match the selected orientation
+            if (orientation === 'portrait' && currentWidth > currentHeight) {
+                // Currently landscape, swap to portrait
+                widthInput.value = currentHeight;
+                heightInput.value = currentWidth;
+            } else if (orientation === 'landscape' && currentHeight > currentWidth) {
+                // Currently portrait, swap to landscape
+                widthInput.value = currentHeight;
+                heightInput.value = currentWidth;
+            }
+            
+            currentOrientation = orientation;
+            updateOrientationButtons();
+        }
+
+        // Update orientation button states
+        function updateOrientationButtons() {
+            const portraitBtn = document.getElementById('portraitBtn');
+            const landscapeBtn = document.getElementById('landscapeBtn');
+            
+            portraitBtn.classList.toggle('active', currentOrientation === 'portrait');
+            landscapeBtn.classList.toggle('active', currentOrientation === 'landscape');
+        }
+
+        // Create new document from dialog
+        function createNewDocumentFromDialog() {
+            const width = parseInt(document.getElementById('customWidth').value);
+            const height = parseInt(document.getElementById('customHeight').value);
+            
+            if (isNaN(width) || isNaN(height) || width < 1 || height < 1) {
+                alert('Please enter valid dimensions (minimum 1px)');
+                return;
+            }
+            
+            if (width > 10000 || height > 10000) {
+                alert('Maximum canvas size is 10000px');
+                return;
+            }
+            
+            // Close dialog
+            closeNewDocumentDialog();
+            
+            // Create document with specified size
+            createNewDocument(width, height);
+        }
+
+        // Resize canvas from dialog
+        function resizeCanvasFromDialog() {
+            const width = parseInt(document.getElementById('customWidth').value);
+            const height = parseInt(document.getElementById('customHeight').value);
+            
+            if (isNaN(width) || isNaN(height) || width < 1 || height < 1) {
+                alert('Please enter valid dimensions (minimum 1px)');
+                return;
+            }
+            
+            if (width > 10000 || height > 10000) {
+                alert('Maximum canvas size is 10000px');
+                return;
+            }
+            
+            // Close dialog
+            closeNewDocumentDialog();
+            
+            // Resize canvas
+            resizeCanvas(width, height);
+        }
+
+        // Resize canvas (preserves layers)
+        function resizeCanvas(newWidth, newHeight) {
+            const oldWidth = canvas.width;
+            const oldHeight = canvas.height;
+            
+            // Update canvas size
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            gridCanvas.width = canvas.width;
+            gridCanvas.height = canvas.height;
+            
+            // Update status bar
+            document.getElementById('canvasSize').textContent = `${newWidth} × ${newHeight}`;
+            
+            // Resize all layer canvases
+            layers.forEach(layer => {
+                // Create new canvas with new size
+                const newLayerCanvas = document.createElement('canvas');
+                newLayerCanvas.width = newWidth;
+                newLayerCanvas.height = newHeight;
+                const newCtx = newLayerCanvas.getContext('2d');
+                
+                // Copy existing layer content
+                const oldCtx = layer.canvas.getContext('2d');
+                const imageData = oldCtx.getImageData(0, 0, Math.min(oldWidth, newWidth), Math.min(oldHeight, newHeight));
+                
+                // Draw existing content to new canvas (centered if expanding)
+                if (oldWidth <= newWidth && oldHeight <= newHeight) {
+                    // Canvas is expanding, keep content at top-left
+                    newCtx.putImageData(imageData, 0, 0);
+                } else {
+                    // Canvas is shrinking, crop from top-left
+                    newCtx.putImageData(imageData, 0, 0);
+                }
+                
+                // Replace layer canvas
+                layer.canvas = newLayerCanvas;
+            });
+            
+            // Re-render
+            renderLayers();
+            addToHistory(`Canvas resized to ${newWidth} × ${newHeight}`);
+            
+            showNotification(`Canvas resized to ${newWidth} × ${newHeight}`, 2000);
+        }
+
+        // Create new document with specified dimensions
+        function createNewDocument(width, height) {
+            // Set canvas size
+            canvas.width = width;
+            canvas.height = height;
+            gridCanvas.width = canvas.width;
+            gridCanvas.height = canvas.height;
+            
+            // Update status bar
+            document.getElementById('canvasSize').textContent = `${width} × ${height}`;
+            
+            // Create white background layer
+            const backgroundLayer = createLayerCanvas();
+            const bgCtx = backgroundLayer.getContext('2d');
+            bgCtx.fillStyle = '#ffffff';
+            bgCtx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            layers = [{
+                canvas: backgroundLayer,
+                name: 'Background',
+                visible: true,
+                opacity: 1
+            }];
+            
+            currentLayer = 0;
+            history = [];
+            historyStates = [];
+            historyIndex = -1;
+            
+            // Clear saved state for new document
+            clearSavedState();
+            
+            // Reset project name
+            projectName = 'Untitled';
+            currentProjectPath = null;
+            markSaved();
+            updateProjectTitle();
+            
+            addToHistory('New Document');
+            updateLayerList();
+            renderLayers();
+            
+            showNotification(`New document created: ${width} × ${height}`, 2000);
         }
 
         // Initialize new document
-        function initializeNewDocument() {
+        function initializeNewDocument(width = 800, height = 600) {
             // Set canvas size
-            canvas.width = 800;
-            canvas.height = 600;
+            canvas.width = width;
+            canvas.height = height;
             gridCanvas.width = canvas.width;
             gridCanvas.height = canvas.height;
             
@@ -3297,42 +3802,8 @@
         // File operations
         function fileActions(action) {
             if (action === 'new') {
-                // Create new document
-                canvas.width = 800;
-                canvas.height = 600;
-                gridCanvas.width = canvas.width;
-                gridCanvas.height = canvas.height;
-                
-                // Create white background layer
-                const backgroundLayer = createLayerCanvas();
-                const bgCtx = backgroundLayer.getContext('2d');
-                bgCtx.fillStyle = '#ffffff';
-                bgCtx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                layers = [{
-                    canvas: backgroundLayer,
-                    name: 'Background',
-                    visible: true,
-                    opacity: 1
-                }];
-                
-                currentLayer = 0;
-                history = [];
-                historyStates = [];
-                historyIndex = -1;
-                
-                // Clear saved state for new document
-                clearSavedState();
-                
-                // Reset project name
-                projectName = 'Untitled';
-                currentProjectPath = null;
-                markSaved();
-                updateProjectTitle();
-                
-                addToHistory('New Document');
-                updateLayerList();
-                renderLayers();
+                // Show new document dialog
+                showNewDocumentDialog();
             } else if (action === 'open') {
                 document.getElementById('fileInput').click();
             }
@@ -4368,8 +4839,12 @@
                 const restoreDialog = document.getElementById('restoreDialog');
                 const changelogModal = document.getElementById('changelogModal');
                 const aboutModal = document.getElementById('aboutModal');
+                const newDocumentDialog = document.getElementById('newDocumentDialog');
                 
-                if (restoreDialog && restoreDialog.classList.contains('show')) {
+                if (newDocumentDialog && newDocumentDialog.classList.contains('show')) {
+                    // ESC on new document dialog closes it
+                    closeNewDocumentDialog();
+                } else if (restoreDialog && restoreDialog.classList.contains('show')) {
                     // ESC on restore dialog starts new session
                     startNewSession();
                 } else if (changelogModal && changelogModal.classList.contains('show')) {
