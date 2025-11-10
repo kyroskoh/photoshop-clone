@@ -81,6 +81,21 @@
             margin-left: 4px;
         }
 
+        .title-bar .developer-mode-indicator {
+            color: #00ff88;
+            margin-left: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
         /* Main Tool Bar */
         .toolbar {
             background: #3c3c3c;
@@ -1041,6 +1056,8 @@
                     <div class="dropdown-divider"></div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); saveProject(); hideAllDropdowns();">Save Project...</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); loadProject(); hideAllDropdowns();">Load Project...</div>
+                    <div class="dropdown-item dev-mode-only" id="saveJsonMenuItem" style="display: none;" onclick="event.stopPropagation(); saveProjectAsJson(); hideAllDropdowns();">Save Project as JSON...</div>
+                    <div class="dropdown-item dev-mode-only" id="loadJsonMenuItem" style="display: none;" onclick="event.stopPropagation(); loadProjectAsJson(); hideAllDropdowns();">Load Project as JSON...</div>
                     <div class="dropdown-divider"></div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); exportImage(); hideAllDropdowns();">Save As PNG...</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); saveAsJPEG(); hideAllDropdowns();">Save As JPEG...</div>
@@ -1111,6 +1128,7 @@
             <span style="margin: 0 8px;">-</span>
             <span class="project-title" id="projectTitle">Untitled</span>
             <span class="unsaved-indicator" id="unsavedIndicator" style="display: none;">*</span>
+            <span class="developer-mode-indicator" id="developerModeIndicator" style="display: none;">DEV MODE</span>
         </div>
 
         <!-- Main Toolbar -->
@@ -1355,7 +1373,7 @@
                 <p>New in this version: Save and load projects in custom .prophoto format, automatic session state saving, and project title bar with unsaved changes indicator. Your work is automatically saved to localStorage, so you can resume editing even after closing the browser!</p>
                 
                 <h3>Creator</h3>
-                <p><strong>Kyros Koh</strong><br>
+                <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
                 Full-stack developer passionate about creating powerful web applications.</p>
                 
                 <h3>Features</h3>
@@ -1467,6 +1485,9 @@
         let projectName = 'Untitled';
         let hasUnsavedChanges = false;
         let currentProjectPath = null; // Store the file path if saved
+        let developerMode = false;
+        let developerModeClickCount = 0;
+        let developerModeClickTimeout = null;
 
         // Initialize the editor
         function init() {
@@ -1503,6 +1524,9 @@
             
             // Initialize project title
             updateProjectTitle();
+            
+            // Initialize developer mode indicator
+            updateDeveloperModeIndicator();
             
             // Add event listeners
             addEventListeners();
@@ -3215,6 +3239,7 @@
                 // Convert to JSON string
                 const jsonString = JSON.stringify(projectData);
                 
+                // Always use XOR encoding for regular Save Project
                 // Convert to Uint8Array
                 const encoder = new TextEncoder();
                 const dataArray = encoder.encode(jsonString);
@@ -3246,19 +3271,23 @@
             document.getElementById('projectFileInput').click();
         }
 
-        // Handle project file load
+        // Handle project file load (always uses XOR format for .prophoto files)
         function handleProjectLoad(event) {
             const file = event.target.files[0];
             if (!file) return;
             
+            // Regular Load Project only accepts .prophoto files (XOR encoded)
             if (!file.name.endsWith('.prophoto')) {
-                alert('Invalid file format. Please select a .prophoto file.');
+                alert('Invalid file format. Please select a .prophoto file. Use "Load Project as JSON" for JSON files.');
                 return;
             }
             
             const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+            
             reader.onload = function(e) {
                 try {
+                    // Always use XOR decode for .prophoto files
                     // Read as ArrayBuffer
                     const arrayBuffer = e.target.result;
                     const dataArray = new Uint8Array(arrayBuffer);
@@ -3302,8 +3331,8 @@
                     gridCanvas.width = canvas.width;
                     gridCanvas.height = canvas.height;
                     
-                    // Restore project name
-                    projectName = projectData.projectName || file.name.replace('.prophoto', '');
+                    // Restore project name (reuse filenameWithoutExt from above)
+                    projectName = projectData.projectName || filenameWithoutExt;
                     currentProjectPath = file.name;
                     
                     // Restore layers
@@ -3404,10 +3433,238 @@
                     alert('Error loading project: ' + e.message);
                 }
             };
-            reader.readAsArrayBuffer(file);
             
             // Reset file input
             event.target.value = '';
+        }
+
+        // Save project as JSON (Developer Mode only)
+        function saveProjectAsJson() {
+            if (!developerMode) {
+                showNotification('Developer mode must be enabled to save as JSON', 3000);
+                return;
+            }
+            
+            // Prompt for project name if it's "Untitled"
+            let nameToSave = projectName;
+            if (projectName === 'Untitled' || !projectName) {
+                const userInput = prompt('Enter project name:', projectName || 'Untitled');
+                if (userInput === null) {
+                    // User cancelled
+                    return;
+                }
+                nameToSave = userInput.trim() || 'Untitled';
+            }
+            
+            // Update project name
+            projectName = nameToSave;
+            updateProjectTitle();
+            
+            try {
+                // Prepare project data
+                const projectData = {
+                    version: '1.0',
+                    timestamp: Date.now(),
+                    projectName: projectName,
+                    canvas: {
+                        width: canvas.width,
+                        height: canvas.height
+                    },
+                    layers: layers.map(layer => ({
+                        imageData: layer.canvas.toDataURL('image/png'),
+                        name: layer.name,
+                        visible: layer.visible,
+                        opacity: layer.opacity
+                    })),
+                    currentLayer: currentLayer,
+                    colors: {
+                        primary: primaryColor,
+                        secondary: secondaryColor
+                    },
+                    tool: currentTool,
+                    settings: {
+                        brushSize: brushSize,
+                        opacity: opacity,
+                        zoom: zoom
+                    },
+                    history: history,
+                    historyIndex: historyIndex,
+                    historyStates: historyStates.map(state => ({
+                        layers: state.layers.map(layer => ({
+                            imageData: layer.imageData,
+                            name: layer.name,
+                            visible: layer.visible,
+                            opacity: layer.opacity
+                        })),
+                        currentLayer: state.currentLayer
+                    }))
+                };
+
+                // Convert to JSON string with pretty printing
+                const jsonString = JSON.stringify(projectData, null, 2);
+                
+                // Save as plain JSON
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = projectName + '.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                // Mark as saved
+                markSaved();
+                showNotification('Project saved as JSON', 2000);
+            } catch (e) {
+                console.error('Error saving project as JSON:', e);
+                alert('Error saving project: ' + e.message);
+            }
+        }
+
+        // Load project from JSON file (Developer Mode only)
+        function loadProjectAsJson() {
+            if (!developerMode) {
+                showNotification('Developer mode must be enabled to load JSON files', 3000);
+                return;
+            }
+            
+            // Create a temporary file input for JSON files only
+            const jsonFileInput = document.createElement('input');
+            jsonFileInput.type = 'file';
+            jsonFileInput.accept = '.json';
+            jsonFileInput.style.display = 'none';
+            jsonFileInput.onchange = function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                if (!file.name.endsWith('.json')) {
+                    alert('Invalid file format. Please select a .json file.');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.readAsText(file);
+                
+                reader.onload = function(e) {
+                    try {
+                        const jsonString = e.target.result;
+                        const projectData = JSON.parse(jsonString);
+                        
+                        // Restore canvas size
+                        canvas.width = projectData.canvas.width;
+                        canvas.height = projectData.canvas.height;
+                        gridCanvas.width = canvas.width;
+                        gridCanvas.height = canvas.height;
+                        
+                        // Restore project name
+                        projectName = projectData.projectName || file.name.replace('.json', '');
+                        currentProjectPath = file.name;
+                        
+                        // Restore layers
+                        layers = [];
+                        let loadedLayers = 0;
+                        const totalLayers = projectData.layers.length;
+                        
+                        if (totalLayers === 0) {
+                            throw new Error('Project file contains no layers');
+                        }
+                        
+                        projectData.layers.forEach((layerData, i) => {
+                            const img = new Image();
+                            img.onload = function() {
+                                const newLayer = {
+                                    canvas: createLayerCanvas(),
+                                    name: layerData.name,
+                                    visible: layerData.visible !== undefined ? layerData.visible : true,
+                                    opacity: layerData.opacity !== undefined ? layerData.opacity : 1
+                                };
+                                
+                                const layerCtx = newLayer.canvas.getContext('2d');
+                                layerCtx.drawImage(img, 0, 0);
+                                layers[i] = newLayer;
+                                
+                                loadedLayers++;
+                                if (loadedLayers === totalLayers) {
+                                    // All layers loaded
+                                    currentLayer = projectData.currentLayer || 0;
+                                    
+                                    // Restore colors
+                                    if (projectData.colors) {
+                                        primaryColor = projectData.colors.primary || '#000000';
+                                        secondaryColor = projectData.colors.secondary || '#ffffff';
+                                        updatePrimaryColorSwatch(primaryColor);
+                                        updateSecondaryColorSwatch(secondaryColor);
+                                    }
+                                    
+                                    // Restore tool
+                                    if (projectData.tool) {
+                                        selectTool(projectData.tool);
+                                    }
+                                    
+                                    // Restore settings
+                                    if (projectData.settings) {
+                                        brushSize = projectData.settings.brushSize || 10;
+                                        opacity = projectData.settings.opacity !== undefined ? projectData.settings.opacity : 1;
+                                        zoom = projectData.settings.zoom || 1;
+                                        
+                                        document.getElementById('sizeSlider').value = brushSize;
+                                        document.getElementById('sizeDisplay').textContent = brushSize;
+                                        document.getElementById('opacitySlider').value = Math.round(opacity * 100);
+                                        document.getElementById('opacityDisplay').textContent = Math.round(opacity * 100);
+                                        document.getElementById('zoomSlider').value = zoom * 100;
+                                        document.getElementById('zoomDisplay').textContent = Math.round(zoom * 100);
+                                        document.getElementById('statusZoom').textContent = Math.round(zoom * 100) + '%';
+                                        updateZoom();
+                                    }
+                                    
+                                    // Restore history
+                                    if (projectData.history && projectData.history.length > 0) {
+                                        history = projectData.history;
+                                        historyIndex = projectData.historyIndex !== undefined ? projectData.historyIndex : history.length - 1;
+                                        
+                                        if (projectData.historyStates && projectData.historyStates.length > 0) {
+                                            historyStates = projectData.historyStates;
+                                        }
+                                    } else {
+                                        history = ['Project Loaded'];
+                                        historyStates = [saveCanvasState()];
+                                        historyIndex = 0;
+                                    }
+                                    
+                                    // Update UI
+                                    updateLayerList();
+                                    renderLayers();
+                                    updateHistoryDisplay();
+                                    updateProjectTitle();
+                                    markSaved(); // Project is saved when loaded
+                                    
+                                    showNotification('Project loaded from JSON', 2000);
+                                }
+                            };
+                            img.onerror = function() {
+                                console.error('Error loading layer image');
+                                loadedLayers++;
+                                if (loadedLayers === totalLayers) {
+                                    updateLayerList();
+                                    renderLayers();
+                                    updateProjectTitle();
+                                }
+                            };
+                            img.src = layerData.imageData;
+                        });
+                        
+                    } catch (e) {
+                        console.error('Error loading project from JSON:', e);
+                        alert('Error loading project: ' + e.message);
+                    }
+                };
+                
+                // Clean up temporary input
+                document.body.removeChild(jsonFileInput);
+            };
+            
+            document.body.appendChild(jsonFileInput);
+            jsonFileInput.click();
         }
 
         // Keyboard shortcuts
@@ -3650,6 +3907,58 @@
         function showAbout() {
             const modal = document.getElementById('aboutModal');
             modal.classList.add('show');
+            // Reset click count when opening About modal
+            developerModeClickCount = 0;
+        }
+
+        // Handle creator name click (easter egg for developer mode)
+        function handleCreatorClick() {
+            developerModeClickCount++;
+            
+            // Clear previous timeout
+            if (developerModeClickTimeout) {
+                clearTimeout(developerModeClickTimeout);
+            }
+            
+            // Reset counter after 2 seconds of no clicks
+            developerModeClickTimeout = setTimeout(() => {
+                developerModeClickCount = 0;
+            }, 2000);
+            
+            // Check if we've clicked enough times (at least 3)
+            if (developerModeClickCount >= 3) {
+                developerMode = !developerMode;
+                updateDeveloperModeIndicator();
+                
+                if (developerMode) {
+                    showNotification('Developer Mode Enabled', 3000);
+                    console.log('Developer Mode: Enabled - Projects will be saved/loaded as plain JSON');
+                } else {
+                    showNotification('Developer Mode Disabled', 3000);
+                    console.log('Developer Mode: Disabled - Projects will be saved/loaded with XOR encoding');
+                }
+                
+                // Reset counter
+                developerModeClickCount = 0;
+            }
+        }
+
+        // Update developer mode indicator visibility
+        function updateDeveloperModeIndicator() {
+            const indicator = document.getElementById('developerModeIndicator');
+            if (indicator) {
+                indicator.style.display = developerMode ? 'inline' : 'none';
+            }
+            
+            // Update menu items visibility
+            const saveJsonMenuItem = document.getElementById('saveJsonMenuItem');
+            const loadJsonMenuItem = document.getElementById('loadJsonMenuItem');
+            if (saveJsonMenuItem) {
+                saveJsonMenuItem.style.display = developerMode ? 'block' : 'none';
+            }
+            if (loadJsonMenuItem) {
+                loadJsonMenuItem.style.display = developerMode ? 'block' : 'none';
+            }
         }
 
         function closeAboutModal(event) {
