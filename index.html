@@ -319,23 +319,123 @@
             user-select: none;
             max-height: calc(100vh - 100px);
             overflow-y: auto;
+            /* Optimize for smooth dragging */
+            will-change: transform;
         }
 
         .tool-panel.dragging {
             opacity: 0.8;
+            /* Disable transitions during drag for smoother movement */
+            transition: none;
+        }
+
+        .tool-panel.collapsed {
+            width: 52px;
+            height: auto;
+            max-height: 400px;
+        }
+
+        .tool-panel.collapsed .tool-panel-content {
+            display: flex;
+            flex-direction: column;
+            padding: 4px;
+            gap: 2px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-height: calc(400px - 52px);
+            scrollbar-width: thin;
+            scrollbar-color: #555 #2c2c2c;
+        }
+
+        .tool-panel.collapsed .tool-panel-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .tool-panel.collapsed .tool-panel-content::-webkit-scrollbar-track {
+            background: #2c2c2c;
+        }
+
+        .tool-panel.collapsed .tool-panel-content::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 2px;
+        }
+
+        .tool-panel.collapsed .tool-panel-content::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+
+        .tool-panel.collapsed .tool-panel-header {
+            border-bottom: 1px solid #555;
+            justify-content: space-between;
+            padding: 4px;
+            flex-direction: row;
+            align-items: center;
+            min-height: 52px;
+            height: auto;
+        }
+
+        .tool-panel.collapsed .tool-panel-scroll-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-left: auto;
+        }
+
+        .tool-panel-scroll-buttons {
+            display: none;
+        }
+
+        .tool-panel-scroll-btn {
+            background: transparent;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 16px;
+            line-height: 1;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            min-height: 44px;
+            width: 44px;
+            height: 44px;
+            border-radius: 4px;
+            transition: background 0.2s, color 0.2s;
+            flex-shrink: 0;
+        }
+
+        .tool-panel-scroll-btn:hover {
+            background: #555;
+            color: #fff;
+        }
+
+        .tool-panel-scroll-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .tool-panel.collapsed .tool-panel-button {
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
         }
 
         .tool-panel-header {
-            height: 24px;
+            min-height: 52px;
+            height: auto;
             background: #2c2c2c;
             border-bottom: 1px solid #555;
             cursor: move;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
             color: #aaa;
             font-size: 10px;
             position: relative;
+            padding: 4px;
+            flex-shrink: 0;
         }
 
         .tool-panel-header:hover {
@@ -349,6 +449,52 @@
             top: 50%;
             transform: translate(-50%, -50%);
             letter-spacing: 2px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Hide drag handle when collapsed since buttons take up the space */
+        .tool-panel.collapsed .tool-panel-header::after {
+            display: none;
+        }
+
+        /* Adjust drag handle position when expanded to avoid collision with collapse button */
+        .tool-panel:not(.collapsed) .tool-panel-header::after {
+            /* Position to the right side to avoid collision with collapse button */
+            left: auto;
+            right: 8px;
+            transform: translateY(-50%);
+        }
+
+        .tool-panel-collapse-btn {
+            background: transparent;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 18px;
+            line-height: 1;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            min-height: 44px;
+            width: 44px;
+            height: 44px;
+            border-radius: 4px;
+            transition: background 0.2s, color 0.2s;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .tool-panel-collapse-btn:hover {
+            background: #555;
+            color: #fff;
+        }
+
+        .tool-panel.collapsed .tool-panel-header::after {
+            display: none;
         }
 
         .tool-panel-content {
@@ -356,6 +502,7 @@
             flex-direction: column;
             padding: 4px;
             gap: 2px;
+            transition: opacity 0.2s;
         }
 
         .tool-panel-button {
@@ -723,6 +870,26 @@
                 height: 42px;
             }
             
+            .tool-panel.collapsed {
+                width: 52px;
+                max-height: 350px;
+            }
+            
+            .tool-panel.collapsed .tool-panel-content {
+                max-height: calc(350px - 52px);
+            }
+            
+            .tool-panel.collapsed .tool-panel-button {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .tool-panel-scroll-btn {
+                width: 44px;
+                height: 44px;
+                font-size: 16px;
+            }
+            
             .canvas-container {
                 margin-left: 50px !important;
             }
@@ -741,6 +908,18 @@
                 min-width: 44px;
                 min-height: 44px;
                 padding: 8px;
+            }
+            
+            .tool-panel-collapse-btn,
+            .tool-panel-scroll-btn {
+                min-width: 44px;
+                min-height: 44px;
+                padding: 8px;
+            }
+            
+            .tool-panel.collapsed .tool-panel-scroll-btn {
+                min-width: 44px;
+                min-height: 44px;
             }
             
             .dropdown-item {
@@ -1381,8 +1560,14 @@
 
         <!-- Left Tool Panel (Photoshop-style) -->
         <div class="tool-panel" id="toolPanel">
-            <div class="tool-panel-header" id="toolPanelHeader"></div>
-            <div class="tool-panel-content">
+            <div class="tool-panel-header" id="toolPanelHeader">
+                <button class="tool-panel-collapse-btn" id="toolPanelCollapseBtn" onclick="toggleToolPanel()" title="Collapse/Expand Toolbox">−</button>
+                <div class="tool-panel-scroll-buttons" id="toolPanelScrollButtons">
+                    <button class="tool-panel-scroll-btn" id="toolPanelScrollUp" onclick="scrollToolPanel('up')" title="Scroll Up">▲</button>
+                    <button class="tool-panel-scroll-btn" id="toolPanelScrollDown" onclick="scrollToolPanel('down')" title="Scroll Down">▼</button>
+                </div>
+            </div>
+            <div class="tool-panel-content" id="toolPanelContent">
                 <button class="tool-panel-button active" id="moveTool" onclick="selectTool('move')" title="Move Tool">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><path d="M12 2L8 6h3v4H5l4 4V10h4l-2 2h-2v4H8l-2 2h4l4-4h-3v-4h6l-4-4v-2h2l2-2H8l4-4z"/></svg>
@@ -2632,96 +2817,206 @@
         document.head.appendChild(style);
 
         // Tool panel drag functionality
+        // Store drag state globally so button handlers can check it
+        window.toolPanelDragState = {
+            hasDragged: false,
+            isDragging: false
+        };
+
         function initToolPanelDrag() {
             const toolPanel = document.getElementById('toolPanel');
             const toolPanelHeader = document.getElementById('toolPanelHeader');
             const canvasContainer = document.getElementById('canvasContainer');
             let isDragging = false;
+            let hasDragged = false;
+            let startX = 0;
+            let startY = 0;
             let currentX = 0;
             let currentY = 0;
-            let initialX = 0;
-            let initialY = 0;
-            let xOffset = 0;
-            let yOffset = 0;
+            let dragThreshold = 5; // pixels to move before considering it a drag
+            let rafId = null;
+            let lastMarginUpdate = 0;
+            const marginUpdateThrottle = 50; // Update margin at most every 50ms
 
             // Load saved position from localStorage
             const savedPosition = localStorage.getItem('toolPanelPosition');
             if (savedPosition) {
                 const pos = JSON.parse(savedPosition);
-                xOffset = pos.x;
-                yOffset = pos.y;
+                currentX = pos.x;
+                currentY = pos.y;
                 toolPanel.style.left = pos.x + 'px';
                 toolPanel.style.top = pos.y + 'px';
                 updateCanvasMargin(pos.x);
+            }
+
+            function updatePosition() {
+                if (!isDragging) return;
+                
+                // Constrain to viewport
+                const maxX = window.innerWidth - toolPanel.offsetWidth;
+                const maxY = window.innerHeight - toolPanel.offsetHeight;
+                const constrainedX = Math.max(0, Math.min(currentX, maxX));
+                const constrainedY = Math.max(0, Math.min(currentY, maxY));
+
+                // Update position
+                toolPanel.style.left = constrainedX + 'px';
+                toolPanel.style.top = constrainedY + 'px';
+                
+                // Throttle canvas margin updates
+                const now = performance.now();
+                if (now - lastMarginUpdate > marginUpdateThrottle) {
+                    updateCanvasMargin(constrainedX);
+                    lastMarginUpdate = now;
+                }
+            }
+
+            let initialPanelX = 0;
+            let initialPanelY = 0;
+
+            function handleMove(e) {
+                if (!isDragging) return;
+                
+                e.preventDefault();
+                
+                let clientX, clientY;
+                if (e.type === 'touchmove') {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                // Calculate new position based on mouse/touch position relative to start
+                currentX = clientX - startX;
+                currentY = clientY - startY;
+
+                // Check if movement exceeds threshold (compare with initial position)
+                if (!hasDragged) {
+                    const distance = Math.sqrt(Math.pow(currentX - initialPanelX, 2) + 
+                                              Math.pow(currentY - initialPanelY, 2));
+                    if (distance > dragThreshold) {
+                        hasDragged = true;
+                        window.toolPanelDragState.hasDragged = true;
+                    }
+                }
+
+                // Cancel any pending animation frame
+                if (rafId !== null) {
+                    cancelAnimationFrame(rafId);
+                }
+
+                // Use requestAnimationFrame for smooth updates
+                rafId = requestAnimationFrame(updatePosition);
             }
 
             toolPanelHeader.addEventListener('mousedown', dragStart);
             toolPanelHeader.addEventListener('touchstart', dragStart, { passive: false });
 
             function dragStart(e) {
+                // Reset drag flag
+                hasDragged = false;
+                window.toolPanelDragState.hasDragged = false;
+                window.toolPanelDragState.isDragging = false;
+                
+                // Check if clicking on a button
+                const collapseBtn = document.getElementById('toolPanelCollapseBtn');
+                const scrollUpBtn = document.getElementById('toolPanelScrollUp');
+                const scrollDownBtn = document.getElementById('toolPanelScrollDown');
+                const scrollButtons = document.getElementById('toolPanelScrollButtons');
+                const clickedOnButton = e.target === collapseBtn || collapseBtn.contains(e.target) ||
+                    e.target === scrollUpBtn || scrollUpBtn.contains(e.target) ||
+                    e.target === scrollDownBtn || scrollDownBtn.contains(e.target) ||
+                    (scrollButtons && scrollButtons.contains(e.target));
+
+                // Get current position
+                const rect = toolPanel.getBoundingClientRect();
+                initialPanelX = rect.left;
+                initialPanelY = rect.top;
+                currentX = initialPanelX;
+                currentY = initialPanelY;
+
+                // Calculate start position relative to panel
                 if (e.type === 'touchstart') {
-                    initialX = e.touches[0].clientX - xOffset;
-                    initialY = e.touches[0].clientY - yOffset;
+                    startX = e.touches[0].clientX - initialPanelX;
+                    startY = e.touches[0].clientY - initialPanelY;
                 } else {
-                    initialX = e.clientX - xOffset;
-                    initialY = e.clientY - yOffset;
+                    startX = e.clientX - initialPanelX;
+                    startY = e.clientY - initialPanelY;
                 }
 
+                // Allow dragging to start from anywhere on the header, including buttons
                 if (e.target === toolPanelHeader || toolPanelHeader.contains(e.target)) {
                     isDragging = true;
+                    window.toolPanelDragState.isDragging = true;
+                    // Add dragging class immediately to prevent flicker
                     toolPanel.classList.add('dragging');
-                    e.preventDefault();
+                    // Only prevent default if not clicking on a button (to allow button click if no drag)
+                    if (!clickedOnButton) {
+                        e.preventDefault();
+                    }
                 }
             }
 
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('touchmove', handleMove, { passive: false });
 
-            function drag(e) {
+            function dragEnd(e) {
                 if (isDragging) {
-                    e.preventDefault();
-                    
-                    if (e.type === 'touchmove') {
-                        currentX = e.touches[0].clientX - initialX;
-                        currentY = e.touches[0].clientY - initialY;
-                    } else {
-                        currentX = e.clientX - initialX;
-                        currentY = e.clientY - initialY;
+                    // Cancel any pending animation frame
+                    if (rafId !== null) {
+                        cancelAnimationFrame(rafId);
+                        rafId = null;
                     }
-
-                    xOffset = currentX;
-                    yOffset = currentY;
-
-                    // Constrain to viewport
-                    const maxX = window.innerWidth - toolPanel.offsetWidth;
-                    const maxY = window.innerHeight - toolPanel.offsetHeight;
-                    xOffset = Math.max(0, Math.min(xOffset, maxX));
-                    yOffset = Math.max(0, Math.min(yOffset, maxY));
-
-                    toolPanel.style.left = xOffset + 'px';
-                    toolPanel.style.top = yOffset + 'px';
                     
-                    updateCanvasMargin(xOffset);
+                    // Final position update
+                    updatePosition();
+                    
+                    // Final canvas margin update
+                    const rect = toolPanel.getBoundingClientRect();
+                    updateCanvasMargin(rect.left);
+                    
+                    // If we actually dragged, prevent button clicks
+                    if (hasDragged && e) {
+                        const collapseBtn = document.getElementById('toolPanelCollapseBtn');
+                        const scrollUpBtn = document.getElementById('toolPanelScrollUp');
+                        const scrollDownBtn = document.getElementById('toolPanelScrollDown');
+                        
+                        if (e.target === collapseBtn || collapseBtn.contains(e.target) ||
+                            e.target === scrollUpBtn || scrollUpBtn.contains(e.target) ||
+                            e.target === scrollDownBtn || scrollDownBtn.contains(e.target)) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
+                    }
+                    
+                    isDragging = false;
+                    
+                    // Remove dragging class and restore transitions
+                    requestAnimationFrame(() => {
+                        toolPanel.classList.remove('dragging');
+                    });
+                    
+                    // Save position to localStorage only if we actually moved
+                    if (hasDragged) {
+                        const finalRect = toolPanel.getBoundingClientRect();
+                        localStorage.setItem('toolPanelPosition', JSON.stringify({
+                            x: finalRect.left,
+                            y: finalRect.top
+                        }));
+                    }
+                    
+                    hasDragged = false;
+                    // Use setTimeout to reset after click events have been processed
+                    setTimeout(() => {
+                        window.toolPanelDragState.hasDragged = false;
+                        window.toolPanelDragState.isDragging = false;
+                    }, 100);
                 }
             }
 
             document.addEventListener('mouseup', dragEnd);
             document.addEventListener('touchend', dragEnd);
-
-            function dragEnd() {
-                if (isDragging) {
-                    initialX = currentX;
-                    initialY = currentY;
-                    isDragging = false;
-                    toolPanel.classList.remove('dragging');
-                    
-                    // Save position to localStorage
-                    localStorage.setItem('toolPanelPosition', JSON.stringify({
-                        x: xOffset,
-                        y: yOffset
-                    }));
-                }
-            }
 
             function updateCanvasMargin(panelX) {
                 // Update canvas container margin based on tool panel position
@@ -2734,12 +3029,120 @@
                     canvasContainer.style.marginLeft = '0';
                 }
             }
+
+            // Load collapsed state from localStorage
+            const savedCollapsed = localStorage.getItem('toolPanelCollapsed');
+            if (savedCollapsed === 'true') {
+                toolPanel.classList.add('collapsed');
+            }
             
+            // Initialize button text
+            updateCollapseButton();
+            
+            // Set up scroll event listener for collapsed state
+            const toolPanelContent = document.getElementById('toolPanelContent');
+            if (toolPanelContent) {
+                toolPanelContent.addEventListener('scroll', updateScrollButtons);
+                // Initialize scroll button states after a short delay to ensure layout is complete
+                setTimeout(() => {
+                    if (toolPanel.classList.contains('collapsed')) {
+                        updateScrollButtons();
+                    }
+                }, 200);
+            }
+
             // Update margin on window resize
             window.addEventListener('resize', () => {
                 const rect = toolPanel.getBoundingClientRect();
                 updateCanvasMargin(rect.left);
+                if (toolPanel.classList.contains('collapsed')) {
+                    updateScrollButtons();
+                }
             });
+        }
+
+        // Update collapse button text
+        function updateCollapseButton() {
+            const toolPanel = document.getElementById('toolPanel');
+            const collapseBtn = document.getElementById('toolPanelCollapseBtn');
+            const isCollapsed = toolPanel.classList.contains('collapsed');
+            collapseBtn.textContent = isCollapsed ? '+' : '−';
+            collapseBtn.title = isCollapsed ? 'Expand Toolbox' : 'Collapse Toolbox';
+        }
+
+        // Toggle tool panel collapse/expand
+        function toggleToolPanel() {
+            // Don't toggle if we just dragged the panel
+            if (window.toolPanelDragState && window.toolPanelDragState.hasDragged) {
+                return;
+            }
+            
+            const toolPanel = document.getElementById('toolPanel');
+            const isCollapsed = toolPanel.classList.toggle('collapsed');
+            
+            // Save state to localStorage
+            localStorage.setItem('toolPanelCollapsed', isCollapsed.toString());
+            
+            // Update button text
+            updateCollapseButton();
+            
+            // Update scroll button states
+            if (isCollapsed) {
+                setTimeout(() => updateScrollButtons(), 100);
+            }
+            
+            // Update canvas margin if panel is on the left
+            const toolPanelRect = toolPanel.getBoundingClientRect();
+            if (toolPanelRect.left < 100) {
+                const panelWidth = toolPanel.offsetWidth;
+                const canvasContainer = document.getElementById('canvasContainer');
+                canvasContainer.style.marginLeft = panelWidth + 'px';
+            }
+        }
+
+        // Scroll tool panel content
+        function scrollToolPanel(direction) {
+            // Don't scroll if we just dragged the panel
+            if (window.toolPanelDragState && window.toolPanelDragState.hasDragged) {
+                return;
+            }
+            
+            const toolPanelContent = document.getElementById('toolPanelContent');
+            if (!toolPanelContent) return;
+            
+            const scrollAmount = 50; // pixels to scroll per click
+            const currentScroll = toolPanelContent.scrollTop || 0;
+            
+            if (direction === 'up') {
+                toolPanelContent.scrollTop = Math.max(0, currentScroll - scrollAmount);
+            } else if (direction === 'down') {
+                const maxScroll = toolPanelContent.scrollHeight - toolPanelContent.clientHeight;
+                toolPanelContent.scrollTop = Math.min(maxScroll, currentScroll + scrollAmount);
+            }
+            
+            // Update button states after scrolling
+            setTimeout(() => updateScrollButtons(), 50);
+        }
+
+        // Update scroll button enabled/disabled states
+        function updateScrollButtons() {
+            const toolPanel = document.getElementById('toolPanel');
+            const toolPanelContent = document.getElementById('toolPanelContent');
+            const scrollUpBtn = document.getElementById('toolPanelScrollUp');
+            const scrollDownBtn = document.getElementById('toolPanelScrollDown');
+            
+            if (!toolPanel.classList.contains('collapsed') || !toolPanelContent || !scrollUpBtn || !scrollDownBtn) {
+                return;
+            }
+            
+            const scrollTop = toolPanelContent.scrollTop || 0;
+            const scrollHeight = toolPanelContent.scrollHeight;
+            const clientHeight = toolPanelContent.clientHeight;
+            const maxScroll = scrollHeight - clientHeight;
+            
+            // Enable/disable buttons based on scroll position
+            scrollUpBtn.disabled = scrollTop <= 0;
+            scrollDownBtn.disabled = scrollTop >= maxScroll - 1; // -1 for rounding errors
         }
 
         // Create a new layer canvas
