@@ -128,6 +128,43 @@
             transition: background 0.2s;
             min-width: 36px;
             height: 36px;
+            position: relative;
+        }
+
+        /* Ensure tooltips work for tool buttons (but not disabled ones) */
+        .tool-button[title]:hover:not(:disabled)::after {
+            content: attr(title);
+            position: absolute;
+            bottom: auto;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 6px 10px;
+            background: #2c2c2c;
+            color: #fff;
+            font-size: 12px;
+            white-space: nowrap;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            pointer-events: none;
+            margin-top: 5px;
+            border: 1px solid #555;
+        }
+
+        .tool-button[title]:hover:not(:disabled)::before {
+            content: '';
+            position: absolute;
+            bottom: auto;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-bottom-color: #555;
+            border-top-color: transparent;
+            z-index: 10001;
+            pointer-events: none;
+            margin-top: -1px;
         }
 
         .tool-button:hover:not(:disabled) {
@@ -157,12 +194,110 @@
             align-items: center;
             gap: 8px;
             margin-left: 8px;
+            position: relative;
         }
 
         .control-label {
             font-size: 12px;
             color: #ccc;
             min-width: 40px;
+            cursor: help;
+            position: relative;
+        }
+
+        /* Custom Tooltip Styles */
+        [title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 6px 10px;
+            background: #2c2c2c;
+            color: #fff;
+            font-size: 12px;
+            white-space: nowrap;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            pointer-events: none;
+            margin-bottom: 5px;
+            border: 1px solid #555;
+        }
+
+        [title]:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #555;
+            z-index: 10001;
+            pointer-events: none;
+            margin-bottom: -1px;
+        }
+
+        /* Tooltip for toolbar items */
+        .toolbar [title]:hover::after,
+        .toolbar .tool-button[title]:hover::after,
+        .toolbar .tool-group [title]:hover::after {
+            bottom: auto;
+            top: 100%;
+            margin-top: 5px;
+            margin-bottom: 0;
+        }
+
+        .toolbar [title]:hover::before,
+        .toolbar .tool-button[title]:hover::before,
+        .toolbar .tool-group [title]:hover::before {
+            border-top-color: transparent;
+            border-bottom-color: #555;
+            margin-top: -1px;
+            bottom: auto;
+            top: 100%;
+        }
+
+        /* Ensure tooltips work for sliders */
+        .slider {
+            position: relative;
+        }
+
+        .slider[title]:hover::after {
+            bottom: auto;
+            top: 100%;
+            margin-top: 5px;
+        }
+
+        .slider[title]:hover::before {
+            border-top-color: transparent;
+            border-bottom-color: #555;
+            margin-top: -1px;
+        }
+
+        /* Tooltip for display values */
+        #sizeDisplay,
+        #opacityDisplay,
+        #zoomDisplay {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+
+        #sizeDisplay[title]:hover::after,
+        #opacityDisplay[title]:hover::after,
+        #zoomDisplay[title]:hover::after {
+            bottom: auto;
+            top: 100%;
+            margin-top: 5px;
+        }
+
+        #sizeDisplay[title]:hover::before,
+        #opacityDisplay[title]:hover::before,
+        #zoomDisplay[title]:hover::before {
+            border-top-color: transparent;
+            border-bottom-color: #555;
+            margin-top: -1px;
         }
 
         .control-input {
@@ -1538,23 +1673,23 @@
 
             <!-- Control Groups -->
             <div class="control-group">
-                <span class="control-label">Size:</span>
-                <input type="range" class="slider" id="sizeSlider" min="1" max="100" value="10" onchange="updateSize()">
-                <span id="sizeDisplay">10</span>px
+                <span class="control-label" title="Brush/Tool Size">Size:</span>
+                <input type="range" class="slider" id="sizeSlider" min="1" max="100" value="10" onchange="updateSize()" title="Adjust brush/tool size (1-100px)">
+                <span id="sizeDisplay" title="Current brush/tool size">10</span>px
             </div>
 
             <div class="control-group">
-                <span class="control-label">Opacity:</span>
-                <input type="range" class="slider" id="opacitySlider" min="1" max="100" value="100" onchange="updateOpacity()">
-                <span id="opacityDisplay">100</span>%
+                <span class="control-label" title="Tool Opacity">Opacity:</span>
+                <input type="range" class="slider" id="opacitySlider" min="1" max="100" value="100" onchange="updateOpacity()" title="Adjust tool opacity (1-100%)">
+                <span id="opacityDisplay" title="Current opacity value">100</span>%
             </div>
 
             <div class="control-group">
-                <span class="control-label">Zoom:</span>
-                <input type="range" class="slider" id="zoomSlider" min="10" max="500" value="100" onchange="updateZoom()">
-                <span id="zoomDisplay">100</span>%
-                <button class="tool-button" onclick="fitToScreen()">Fit</button>
-                <button class="tool-button" onclick="actualSize()">100%</button>
+                <span class="control-label" title="Canvas Zoom Level">Zoom:</span>
+                <input type="range" class="slider" id="zoomSlider" min="10" max="500" value="100" onchange="updateZoom()" title="Adjust canvas zoom level (10-500%)">
+                <span id="zoomDisplay" title="Current zoom percentage">100</span>%
+                <button class="tool-button" onclick="fitToScreen()" title="Fit canvas to screen">Fit</button>
+                <button class="tool-button" onclick="actualSize()" title="Reset zoom to 100% (actual size)">100%</button>
             </div>
         </div>
 
