@@ -3474,6 +3474,29 @@
 
         function handleDoubleClick(e) {
             const { x, y } = getEventCoordinates(e);
+            if (currentTool === 'lasso') {
+                if (lassoPoints.length > 2) {
+                    isDrawing = false;
+                    endLasso();
+                    addToHistory('Lasso Selection');
+                }
+                return;
+            }
+
+            if (currentTool === 'marquee') {
+                if (selectedArea && !Array.isArray(selectedArea)) {
+                    isDrawing = false;
+                    endMarquee();
+                    addToHistory('Marquee Selection');
+                }
+                return;
+            }
+
+            if (currentTool === 'magicWand') {
+                selectMagicWand(Math.round(x), Math.round(y));
+                return;
+            }
+
             if (currentTool === 'crop' && cropArea && isPointInCropArea(x, y)) {
                 endCrop();
             }
