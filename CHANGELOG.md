@@ -5,6 +5,14 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-05-20
+
+### Fixed
+- **Selection Tool Functionality**
+  - Marquee, lasso, and magic wand selections now correctly activate — drawn content (brush, pencil, spray, fill) can be selected and moved/transformed as expected.
+  - Root cause: `rebuildSelectionMask()` called `hasActiveEditSelection()`, which called `rebuildSelectionMask()` again when the mask was unbuilt, causing infinite recursion and a silent stack overflow. The selection mask was never built, so `hasActiveEditSelection()` always returned `false` and all selection operations silently failed while the dashed overlay still rendered.
+  - Fix: replaced the circular guard with a direct check of `selectedArea` and `selectionMode` in `rebuildSelectionMask()`.
+
 ## [1.2.1] - 2026-05-20
 
 ### Added
@@ -144,6 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.2.2** - Fix selection tool infinite recursion; marquee/lasso/magic wand now correctly select drawn content
 - **v1.2.1** - Double-click finalize for selection tools and persistent selection-bound editing
 - **v1.2.0** - Crop workflow, keyboard shortcut reliability, selection overlay fixes, and lasso selection-bound editing
 - **v1.1.0** - Project management, auto-save, and .prophoto file format
