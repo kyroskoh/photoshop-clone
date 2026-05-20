@@ -1575,6 +1575,7 @@
                     <div class="dropdown-divider"></div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); exportImage(); hideAllDropdowns();">Save As PNG...</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); saveAsJPEG(); hideAllDropdowns();">Save As JPEG...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAsWebm(); hideAllDropdowns();">Export as WebM...</div>
                 </div>
             </div>
             <div class="menu-separator"></div>
@@ -4574,6 +4575,48 @@
             link.download = 'image.jpg';
             link.href = canvas.toDataURL('image/jpeg', 0.9);
             link.click();
+        }
+
+
+        function startRecording() {
+            const chunks = []; // here we will store our recorded media chunks (Blobs)
+            const stream = canvas.captureStream(); // grab our canvas MediaStream
+            const rec = new MediaRecorder(stream); // init the recorder
+            // every time the recorder has new data, we will store it in our array
+            rec.ondataavailable = e => chunks.push(e.data);
+            // only when the recorder stops, we construct a complete Blob from all the chunks
+            rec.onstop = e => exportVid(new Blob(chunks, { type: 'video/webm' }));
+
+            rec.start();
+            // TODO: Maybe make it longer? 
+            setTimeout(() => rec.stop(), 3000); // stop recording in 3s
+        }
+
+   
+        function anim()
+        {
+            currentLayer = (currentLayer + 1) % layers.length; 
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(layers[currentLayer].canvas, 0, 0) 
+
+            requestAnimationFrame(anim);
+        }
+
+
+        function exportVid(blob) {
+            const vid = document.createElement('video');
+            vid.src = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = 'video.webm'
+            link.href = vid.src;
+            link.click();
+        }
+
+        function exportAsWebm() {
+            currentLayer = 0;
+            anim();
+            startRecording(); 
         }
 
         // Save project as .prophoto file
