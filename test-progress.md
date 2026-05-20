@@ -5,7 +5,7 @@
 **Created by**: Kyros Koh
 **Website Type**: Complex WebApp (Single HTML Image Editor)
 **Deployed URL**: https://kyroskoh.github.io/photoshop-clone/
-**Test Date**: 2025-11-10
+**Test Date**: 2026-05-20
 
 ### Pathways to Test
 - [ ] Tool Selection and Drawing Functionality

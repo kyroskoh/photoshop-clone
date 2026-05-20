@@ -5,7 +5,7 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-05-20
+## [1.2.0] - 2026-05-20
 
 ### Changed
 - **Crop Tool Interaction**
@@ -130,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.2.0** - Crop workflow, keyboard shortcut reliability, selection overlay fixes, and lasso selection-bound editing
 - **v1.1.0** - Project management, auto-save, and .prophoto file format
 - **v1.0.0** - Initial release with core editing features
 
