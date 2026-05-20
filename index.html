@@ -3630,7 +3630,13 @@
         }
 
         function endMarquee() {
-            // Keep selection area for later use
+            const w = Math.abs(selectedArea.x2 - selectedArea.x1);
+            const h = Math.abs(selectedArea.y2 - selectedArea.y1);
+            if (w < 1 || h < 1) {
+                clearSelectionState();
+                updateSelectionDisplay();
+                return;
+            }
             rebuildSelectionMask();
             updateSelectionDisplay();
         }
@@ -3654,6 +3660,10 @@
             if (lassoPoints.length > 2) {
                 const firstPoint = lassoPoints[0];
                 lassoPoints.push({ x: firstPoint.x, y: firstPoint.y });
+            } else {
+                clearSelectionState();
+                updateSelectionDisplay();
+                return;
             }
             selectedArea = lassoPoints.slice();
             rebuildSelectionMask();
@@ -3804,6 +3814,11 @@
                 const [x, y] = key.split(',').map(Number);
                 return {x, y};
             });
+            if (visited.size === 0) {
+                clearSelectionState();
+                updateSelectionDisplay();
+                return;
+            }
             selectionMode = 'magicWand';
             selectedPixelSet = visited;
             rebuildSelectionMask();
@@ -5330,7 +5345,12 @@
         }
 
         function hasActiveEditSelection() {
-            return !!selectedArea && (selectionMode === 'marquee' || selectionMode === 'lasso' || selectionMode === 'magicWand');
+            if (!selectedArea) return false;
+            if (!(selectionMode === 'marquee' || selectionMode === 'lasso' || selectionMode === 'magicWand')) return false;
+            if (!selectionMaskCanvas || !selectionBounds) {
+                rebuildSelectionMask();
+            }
+            return !!selectionBounds && selectionBounds.width >= 1 && selectionBounds.height >= 1;
         }
 
         function isPointInPolygon(x, y, points) {
