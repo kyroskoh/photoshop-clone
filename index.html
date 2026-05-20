@@ -2060,6 +2060,10 @@
         let selectedArea = null;
         let selectionMode = null;
         let selectedPixelSet = null;
+        let selectionMaskCanvas = null;
+        let selectionBounds = null;
+        let floatingSelection = null;
+        let moveInteraction = null;
         let lassoPoints = [];
         let cropArea = null;
         let cropInteractionMode = null;
@@ -3408,7 +3412,10 @@
             } else if (currentTool === 'crop') {
                 startCrop(x, y);
             } else if (currentTool === 'move') {
-                startPan(e);
+                if (!startMoveInteraction(x, y, e)) {
+                    startPan(e);
+                    moveInteraction = { type: 'pan' };
+                }
             }
         }
 
@@ -3431,7 +3438,9 @@
             } else if (currentTool === 'crop') {
                 updateCrop(x, y);
             } else if (currentTool === 'move') {
-                panCanvas(e);
+                if (!updateMoveInteraction(x, y, e) && moveInteraction && moveInteraction.type === 'pan') {
+                    panCanvas(e);
+                }
             }
         }
 
@@ -3446,10 +3455,12 @@
                     endLasso();
                 } else if (currentTool === 'crop') {
                     endCropInteraction();
+                } else if (currentTool === 'move') {
+                    endMoveInteraction();
                 }
                 
                 // Add to history
-                if (currentTool !== 'crop') {
+                if (currentTool !== 'crop' && currentTool !== 'move') {
                     addToHistory(`Used ${currentTool} tool`);
                 }
             }
@@ -3534,6 +3545,11 @@
 
         // Select tool
         function selectTool(tool) {
+            if (currentTool === 'move' && floatingSelection && tool !== 'move') {
+                if (commitFloatingSelection()) {
+                    addToHistory('Transform Selection');
+                }
+            }
             currentTool = tool;
             
             // Update tool buttons (both toolbar and tool panel)
@@ -3615,6 +3631,7 @@
 
         function endMarquee() {
             // Keep selection area for later use
+            rebuildSelectionMask();
             updateSelectionDisplay();
         }
 
@@ -3639,6 +3656,7 @@
                 lassoPoints.push({ x: firstPoint.x, y: firstPoint.y });
             }
             selectedArea = lassoPoints.slice();
+            rebuildSelectionMask();
             updateSelectionDisplay();
         }
 
@@ -3714,9 +3732,8 @@
             if (cropWidth < 1 || cropHeight < 1) {
                 cropInteractionMode = null;
                 cropArea = null;
-                selectedArea = null;
-                selectionMode = null;
-                selectedPixelSet = null;
+                clearSelectionState();
+                floatingSelection = null;
                 renderLayers();
                 return;
             }
@@ -3742,9 +3759,8 @@
 
             cropInteractionMode = null;
             cropArea = null;
-            selectedArea = null;
-            selectionMode = null;
-            selectedPixelSet = null;
+            clearSelectionState();
+            floatingSelection = null;
             renderLayers();
             addToHistory('Applied crop');
         }
@@ -3790,6 +3806,7 @@
             });
             selectionMode = 'magicWand';
             selectedPixelSet = visited;
+            rebuildSelectionMask();
             updateSelectionDisplay();
             
             addToHistory('Magic Wand Selection');
@@ -3865,6 +3882,52 @@
                     ctx.restore();
                 }
             });
+
+            if (floatingSelection) {
+                const b = floatingSelection.bounds;
+                const cx = b.x + b.width / 2 + floatingSelection.tx;
+                const cy = b.y + b.height / 2 + floatingSelection.ty;
+
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(floatingSelection.rotation);
+                ctx.scale(floatingSelection.scaleX, floatingSelection.scaleY);
+                ctx.drawImage(floatingSelection.canvas, -cx, -cy);
+                ctx.restore();
+
+                const handles = getFloatingHandlePositions();
+                if (handles) {
+                    ctx.save();
+                    ctx.setLineDash([6, 3]);
+                    ctx.strokeStyle = '#00a8ff';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(handles.corners.nw.x, handles.corners.nw.y);
+                    ctx.lineTo(handles.corners.ne.x, handles.corners.ne.y);
+                    ctx.lineTo(handles.corners.se.x, handles.corners.se.y);
+                    ctx.lineTo(handles.corners.sw.x, handles.corners.sw.y);
+                    ctx.closePath();
+                    ctx.stroke();
+
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#0078d4';
+                    ['nw', 'ne', 'se', 'sw'].forEach(key => {
+                        const p = handles.corners[key];
+                        ctx.fillRect(p.x - 4, p.y - 4, 8, 8);
+                        ctx.strokeRect(p.x - 4, p.y - 4, 8, 8);
+                    });
+                    ctx.beginPath();
+                    ctx.moveTo((handles.corners.nw.x + handles.corners.ne.x) / 2, (handles.corners.nw.y + handles.corners.ne.y) / 2);
+                    ctx.lineTo(handles.rotateHandle.x, handles.rotateHandle.y);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(handles.rotateHandle.x, handles.rotateHandle.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
             
             drawSelectionOverlay();
             updateCanvasSize();
@@ -3998,9 +4061,9 @@
                 gridCanvas.width = stateWidth;
                 gridCanvas.height = stateHeight;
                 cropArea = null;
-                selectedArea = null;
-                selectionMode = null;
-                selectedPixelSet = null;
+                clearSelectionState();
+                floatingSelection = null;
+                moveInteraction = null;
                 
                 // Restore layers
                 layers = [];
@@ -5258,9 +5321,9 @@
                     e.stopPropagation();
                     cropInteractionMode = null;
                     cropArea = null;
-                    selectedArea = null;
-                    selectionMode = null;
-                    selectedPixelSet = null;
+                    clearSelectionState();
+                    floatingSelection = null;
+                    moveInteraction = null;
                     renderLayers();
                 }
             }
@@ -5360,6 +5423,291 @@
             }
 
             ctx.restore();
+        }
+
+        function clearSelectionState() {
+            selectedArea = null;
+            selectionMode = null;
+            selectedPixelSet = null;
+            selectionMaskCanvas = null;
+            selectionBounds = null;
+        }
+
+        function rebuildSelectionMask() {
+            if (!hasActiveEditSelection()) {
+                selectionMaskCanvas = null;
+                selectionBounds = null;
+                return;
+            }
+
+            const mask = document.createElement('canvas');
+            mask.width = canvas.width;
+            mask.height = canvas.height;
+            const mctx = mask.getContext('2d');
+            mctx.fillStyle = '#ffffff';
+
+            if (selectionMode === 'marquee' && typeof selectedArea === 'object' && !Array.isArray(selectedArea)) {
+                const x = Math.min(selectedArea.x1, selectedArea.x2);
+                const y = Math.min(selectedArea.y1, selectedArea.y2);
+                const w = Math.abs(selectedArea.x2 - selectedArea.x1);
+                const h = Math.abs(selectedArea.y2 - selectedArea.y1);
+                mctx.fillRect(x, y, w, h);
+                selectionBounds = { x, y, width: w, height: h };
+            } else if (selectionMode === 'lasso' && Array.isArray(selectedArea) && selectedArea.length > 2) {
+                mctx.beginPath();
+                mctx.moveTo(selectedArea[0].x, selectedArea[0].y);
+                for (let i = 1; i < selectedArea.length; i++) {
+                    mctx.lineTo(selectedArea[i].x, selectedArea[i].y);
+                }
+                mctx.closePath();
+                mctx.fill();
+                selectionBounds = getPolygonBounds(selectedArea);
+            } else if (selectionMode === 'magicWand' && selectedPixelSet) {
+                const img = mctx.getImageData(0, 0, mask.width, mask.height);
+                let minX = mask.width, minY = mask.height, maxX = -1, maxY = -1;
+                selectedPixelSet.forEach(key => {
+                    const [sx, sy] = key.split(',').map(Number);
+                    if (sx < 0 || sy < 0 || sx >= mask.width || sy >= mask.height) return;
+                    const idx = (sy * mask.width + sx) * 4;
+                    img.data[idx] = 255;
+                    img.data[idx + 1] = 255;
+                    img.data[idx + 2] = 255;
+                    img.data[idx + 3] = 255;
+                    if (sx < minX) minX = sx;
+                    if (sy < minY) minY = sy;
+                    if (sx > maxX) maxX = sx;
+                    if (sy > maxY) maxY = sy;
+                });
+                mctx.putImageData(img, 0, 0);
+                if (maxX >= minX && maxY >= minY) {
+                    selectionBounds = { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+                } else {
+                    selectionBounds = null;
+                }
+            } else {
+                selectionBounds = null;
+            }
+
+            selectionMaskCanvas = mask;
+        }
+
+        function getPolygonBounds(points) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            points.forEach(p => {
+                if (p.x < minX) minX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y > maxY) maxY = p.y;
+            });
+            return { x: minX, y: minY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
+        }
+
+        function extractFloatingSelectionFromCurrentLayer() {
+            rebuildSelectionMask();
+            if (!selectionMaskCanvas || !selectionBounds || selectionBounds.width < 1 || selectionBounds.height < 1) {
+                return false;
+            }
+
+            const layer = layers[currentLayer];
+            const layerCtx = layer.canvas.getContext('2d');
+
+            const floatCanvas = document.createElement('canvas');
+            floatCanvas.width = canvas.width;
+            floatCanvas.height = canvas.height;
+            const fctx = floatCanvas.getContext('2d');
+            fctx.drawImage(layer.canvas, 0, 0);
+            fctx.globalCompositeOperation = 'destination-in';
+            fctx.drawImage(selectionMaskCanvas, 0, 0);
+
+            layerCtx.save();
+            layerCtx.globalCompositeOperation = 'destination-out';
+            layerCtx.drawImage(selectionMaskCanvas, 0, 0);
+            layerCtx.restore();
+
+            floatingSelection = {
+                canvas: floatCanvas,
+                originX: 0,
+                originY: 0,
+                tx: 0,
+                ty: 0,
+                scaleX: 1,
+                scaleY: 1,
+                rotation: 0,
+                bounds: { ...selectionBounds }
+            };
+            return true;
+        }
+
+        function getFloatingSelectionCenter() {
+            if (!floatingSelection) return { x: 0, y: 0 };
+            return {
+                x: floatingSelection.bounds.x + floatingSelection.bounds.width / 2 + floatingSelection.tx,
+                y: floatingSelection.bounds.y + floatingSelection.bounds.height / 2 + floatingSelection.ty
+            };
+        }
+
+        function getFloatingHandlePositions() {
+            if (!floatingSelection) return null;
+            const b = floatingSelection.bounds;
+            const cx = b.x + b.width / 2 + floatingSelection.tx;
+            const cy = b.y + b.height / 2 + floatingSelection.ty;
+            const halfW = (b.width * floatingSelection.scaleX) / 2;
+            const halfH = (b.height * floatingSelection.scaleY) / 2;
+            const angle = floatingSelection.rotation;
+            const cosA = Math.cos(angle);
+            const sinA = Math.sin(angle);
+
+            const rotatePoint = (lx, ly) => ({
+                x: cx + lx * cosA - ly * sinA,
+                y: cy + lx * sinA + ly * cosA
+            });
+
+            const corners = {
+                nw: rotatePoint(-halfW, -halfH),
+                ne: rotatePoint(halfW, -halfH),
+                se: rotatePoint(halfW, halfH),
+                sw: rotatePoint(-halfW, halfH)
+            };
+            const rotateHandle = rotatePoint(0, -halfH - 24);
+            return { corners, rotateHandle, center: { x: cx, y: cy } };
+        }
+
+        function hitTestFloatingHandles(x, y) {
+            const handles = getFloatingHandlePositions();
+            if (!handles) return null;
+            const radius = 10;
+            const isHit = (p) => ((x - p.x) * (x - p.x) + (y - p.y) * (y - p.y)) <= radius * radius;
+
+            if (isHit(handles.rotateHandle)) return { type: 'rotate' };
+            for (const key of ['nw', 'ne', 'se', 'sw']) {
+                if (isHit(handles.corners[key])) return { type: 'scale', corner: key };
+            }
+            return null;
+        }
+
+        function pointInFloatingSelection(x, y) {
+            if (!floatingSelection) return false;
+            const c = getFloatingSelectionCenter();
+            const dx = x - c.x;
+            const dy = y - c.y;
+            const cosA = Math.cos(-floatingSelection.rotation);
+            const sinA = Math.sin(-floatingSelection.rotation);
+            const lx = dx * cosA - dy * sinA;
+            const ly = dx * sinA + dy * cosA;
+            const halfW = (floatingSelection.bounds.width * floatingSelection.scaleX) / 2;
+            const halfH = (floatingSelection.bounds.height * floatingSelection.scaleY) / 2;
+            return Math.abs(lx) <= halfW && Math.abs(ly) <= halfH;
+        }
+
+        function startMoveInteraction(x, y, e) {
+            if (currentTool !== 'move') return false;
+
+            if (!floatingSelection && hasActiveEditSelection()) {
+                if (!isPointSelected(x, y)) return false;
+                if (!extractFloatingSelectionFromCurrentLayer()) return false;
+            }
+            if (!floatingSelection) return false;
+
+            const handleHit = hitTestFloatingHandles(x, y);
+            if (handleHit) {
+                if (handleHit.type === 'rotate') {
+                    const center = getFloatingSelectionCenter();
+                    moveInteraction = {
+                        type: 'rotate-selection',
+                        startAngle: Math.atan2(y - center.y, x - center.x),
+                        baseRotation: floatingSelection.rotation
+                    };
+                } else {
+                    moveInteraction = {
+                        type: 'scale-selection',
+                        corner: handleHit.corner,
+                        startX: x,
+                        startY: y,
+                        baseScaleX: floatingSelection.scaleX,
+                        baseScaleY: floatingSelection.scaleY
+                    };
+                }
+                return true;
+            }
+
+            if (pointInFloatingSelection(x, y)) {
+                moveInteraction = {
+                    type: 'move-selection',
+                    startX: x,
+                    startY: y,
+                    baseTx: floatingSelection.tx,
+                    baseTy: floatingSelection.ty
+                };
+                return true;
+            }
+
+            return false;
+        }
+
+        function updateMoveInteraction(x, y, e) {
+            if (!moveInteraction || !floatingSelection) return false;
+
+            if (moveInteraction.type === 'move-selection') {
+                floatingSelection.tx = moveInteraction.baseTx + (x - moveInteraction.startX);
+                floatingSelection.ty = moveInteraction.baseTy + (y - moveInteraction.startY);
+                renderLayers();
+                return true;
+            }
+            if (moveInteraction.type === 'scale-selection') {
+                const dx = x - moveInteraction.startX;
+                const dy = y - moveInteraction.startY;
+                const factorX = 1 + (moveInteraction.corner.includes('e') ? dx : -dx) / Math.max(1, floatingSelection.bounds.width);
+                const factorY = 1 + (moveInteraction.corner.includes('s') ? dy : -dy) / Math.max(1, floatingSelection.bounds.height);
+                floatingSelection.scaleX = Math.max(0.05, moveInteraction.baseScaleX * factorX);
+                floatingSelection.scaleY = Math.max(0.05, moveInteraction.baseScaleY * factorY);
+                renderLayers();
+                return true;
+            }
+            if (moveInteraction.type === 'rotate-selection') {
+                const center = getFloatingSelectionCenter();
+                const currentAngle = Math.atan2(y - center.y, x - center.x);
+                floatingSelection.rotation = moveInteraction.baseRotation + (currentAngle - moveInteraction.startAngle);
+                renderLayers();
+                return true;
+            }
+
+            return false;
+        }
+
+        function commitFloatingSelection() {
+            if (!floatingSelection) return false;
+            const layer = layers[currentLayer];
+            const layerCtx = layer.canvas.getContext('2d');
+            const b = floatingSelection.bounds;
+
+            layerCtx.save();
+            const cx = b.x + b.width / 2 + floatingSelection.tx;
+            const cy = b.y + b.height / 2 + floatingSelection.ty;
+            layerCtx.translate(cx, cy);
+            layerCtx.rotate(floatingSelection.rotation);
+            layerCtx.scale(floatingSelection.scaleX, floatingSelection.scaleY);
+            layerCtx.drawImage(
+                floatingSelection.canvas,
+                -cx,
+                -cy
+            );
+            layerCtx.restore();
+
+            floatingSelection = null;
+            clearSelectionState();
+            renderLayers();
+            return true;
+        }
+
+        function endMoveInteraction() {
+            if (!moveInteraction) return;
+            const shouldCommit = moveInteraction.type === 'move-selection' || moveInteraction.type === 'scale-selection' || moveInteraction.type === 'rotate-selection';
+            moveInteraction = null;
+            if (shouldCommit) {
+                if (commitFloatingSelection()) {
+                    addToHistory('Transform Selection');
+                }
+            }
         }
 
         // Utility functions
