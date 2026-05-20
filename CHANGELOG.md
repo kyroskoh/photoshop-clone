@@ -5,6 +5,22 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-05-20
+
+### Added
+- **Vector Object System for Drawn Content**
+  - Brush, pencil, spray, and fill operations now record vector stroke objects alongside their pixel output.
+  - Selection tools (marquee, lasso, magic wand) detect entire stroke objects within the selection — not just pixel regions — so full strokes are lifted and moved as a unit.
+  - Marquee and lasso detect strokes whose points fall within the selection bounds; magic wand matches strokes by pixel proximity.
+  - Fill operations record their bounding extent for detection.
+
+### Changed
+- **Selection Tools can now move content directly** — no need to switch to the Move tool.
+  - Clicking within an active selection while using Marquee, Lasso, or Magic Wand lifts the selected content and starts a drag-to-move operation (mouseup commits).
+  - Clicking outside an active floating selection commits it in place and allows starting a fresh selection.
+  - Move tool also prefers vector extraction when selected strokes are available.
+- On commit (mouseup), selected vector stroke records are retired from the layer's object list so subsequent selections use the updated pixel state.
+
 ## [1.2.2] - 2026-05-20
 
 ### Fixed
@@ -152,6 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.3.0** - Vector object system: selection tools detect and move drawn strokes directly; no tool switch required
 - **v1.2.2** - Fix selection tool infinite recursion; marquee/lasso/magic wand now correctly select drawn content
 - **v1.2.1** - Double-click finalize for selection tools and persistent selection-bound editing
 - **v1.2.0** - Crop workflow, keyboard shortcut reliability, selection overlay fixes, and lasso selection-bound editing

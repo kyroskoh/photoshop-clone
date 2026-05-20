@@ -2065,6 +2065,8 @@
         let floatingSelection = null;
         let moveInteraction = null;
         let lassoPoints = [];
+        let strokeIdCounter = 0;
+        let currentStrokeId = null;
         let cropArea = null;
         let cropInteractionMode = null;
         let cropDragOffset = { x: 0, y: 0 };
@@ -2105,7 +2107,8 @@
                 canvas: backgroundLayer,
                 name: 'Background',
                 visible: true,
-                opacity: 1
+                opacity: 1,
+                strokes: []
             });
             
             // Initialize color palette
@@ -3400,11 +3403,11 @@
             if (currentTool === 'brush' || currentTool === 'pencil' || currentTool === 'eraser' || currentTool === 'spray') {
                 useBrush(x, y, false);
             } else if (currentTool === 'marquee') {
-                startMarquee(x, y);
+                if (!tryStartSelectionMove(x, y)) startMarquee(x, y);
             } else if (currentTool === 'lasso') {
-                startLasso(x, y);
+                if (!tryStartSelectionMove(x, y)) startLasso(x, y);
             } else if (currentTool === 'magicWand') {
-                selectMagicWand(x, y);
+                if (!tryStartSelectionMove(x, y)) selectMagicWand(x, y);
             } else if (currentTool === 'text') {
                 showTextDialog(x, y);
             } else if (currentTool === 'fill') {
@@ -3432,9 +3435,13 @@
             if (currentTool === 'brush' || currentTool === 'pencil' || currentTool === 'eraser' || currentTool === 'spray') {
                 useBrush(x, y, true);
             } else if (currentTool === 'marquee') {
-                updateMarquee(x, y);
+                if (moveInteraction) updateMoveInteraction(x, y, e);
+                else updateMarquee(x, y);
             } else if (currentTool === 'lasso') {
-                updateLasso(x, y);
+                if (moveInteraction) updateMoveInteraction(x, y, e);
+                else updateLasso(x, y);
+            } else if (currentTool === 'magicWand') {
+                if (moveInteraction) updateMoveInteraction(x, y, e);
             } else if (currentTool === 'crop') {
                 updateCrop(x, y);
             } else if (currentTool === 'move') {
@@ -3449,18 +3456,23 @@
             if (isDrawing) {
                 isDrawing = false;
                 
+                let didSelectionMove = false;
                 if (currentTool === 'marquee') {
-                    endMarquee();
+                    if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
+                    else endMarquee();
                 } else if (currentTool === 'lasso') {
-                    endLasso();
+                    if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
+                    else endLasso();
+                } else if (currentTool === 'magicWand') {
+                    if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
                 } else if (currentTool === 'crop') {
                     endCropInteraction();
                 } else if (currentTool === 'move') {
                     endMoveInteraction();
                 }
-                
+
                 // Add to history
-                if (currentTool !== 'crop' && currentTool !== 'move') {
+                if (currentTool !== 'crop' && currentTool !== 'move' && !didSelectionMove) {
                     addToHistory(`Used ${currentTool} tool`);
                 }
             }
@@ -3611,7 +3623,38 @@
             if (usingSelectionClip) {
                 layerCtx.restore();
             }
-            
+
+            // Vector stroke tracking (skip eraser — it removes pixels, not adds them)
+            if (currentTool !== 'eraser') {
+                if (!isDrawing) {
+                    const r = brushSize / 2;
+                    const stroke = {
+                        id: ++strokeIdCounter,
+                        tool: currentTool,
+                        color: primaryColor,
+                        size: brushSize,
+                        opacity: opacity,
+                        compositeOp: 'source-over',
+                        points: [{x, y}],
+                        bx1: x - r, by1: y - r, bx2: x + r, by2: y + r,
+                        selected: false
+                    };
+                    if (!layer.strokes) layer.strokes = [];
+                    layer.strokes.push(stroke);
+                    currentStrokeId = stroke.id;
+                } else if (currentStrokeId !== null) {
+                    const stroke = (layer.strokes || []).find(s => s.id === currentStrokeId);
+                    if (stroke) {
+                        stroke.points.push({x, y});
+                        const r = brushSize / 2;
+                        if (x - r < stroke.bx1) stroke.bx1 = x - r;
+                        if (y - r < stroke.by1) stroke.by1 = y - r;
+                        if (x + r > stroke.bx2) stroke.bx2 = x + r;
+                        if (y + r > stroke.by2) stroke.by2 = y + r;
+                    }
+                }
+            }
+
             renderLayers();
         }
 
@@ -3638,6 +3681,7 @@
                 return;
             }
             rebuildSelectionMask();
+            detectStrokesInSelection();
             updateSelectionDisplay();
         }
 
@@ -3667,6 +3711,7 @@
             }
             selectedArea = lassoPoints.slice();
             rebuildSelectionMask();
+            detectStrokesInSelection();
             updateSelectionDisplay();
         }
 
@@ -3822,8 +3867,9 @@
             selectionMode = 'magicWand';
             selectedPixelSet = visited;
             rebuildSelectionMask();
+            detectStrokesInSelection();
             updateSelectionDisplay();
-            
+
             addToHistory('Magic Wand Selection');
         }
 
@@ -3842,11 +3888,12 @@
             
             const visited = new Set();
             const stack = [[startX, startY]];
-            
+            let fillBx1 = startX, fillBy1 = startY, fillBx2 = startX, fillBy2 = startY;
+
             while (stack.length > 0) {
                 const [x, y] = stack.pop();
                 const key = `${x},${y}`;
-                
+
                 if (visited.has(key) || x < 0 || y < 0 || x >= layer.canvas.width || y >= layer.canvas.height) {
                     continue;
                 }
@@ -3854,17 +3901,37 @@
                 if (hasActiveEditSelection() && !isPointSelected(x, y)) {
                     continue;
                 }
-                
+
                 const currentColor = getPixelColor(data, x, y);
-                
+
                 if (colorsMatch(currentColor, targetColor)) {
                     setPixelColor(data, x, y, hex);
                     visited.add(key);
+                    if (x < fillBx1) fillBx1 = x;
+                    if (y < fillBy1) fillBy1 = y;
+                    if (x > fillBx2) fillBx2 = x;
+                    if (y > fillBy2) fillBy2 = y;
                     stack.push([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]);
                 }
             }
-            
+
             layerCtx.putImageData(data, 0, 0);
+
+            if (visited.size > 0) {
+                if (!layer.strokes) layer.strokes = [];
+                layer.strokes.push({
+                    id: ++strokeIdCounter,
+                    tool: 'fill',
+                    color: fillColor,
+                    size: 1,
+                    opacity: 1,
+                    compositeOp: 'source-over',
+                    points: [{x: startX, y: startY}],
+                    bx1: fillBx1, by1: fillBy1, bx2: fillBx2 + 1, by2: fillBy2 + 1,
+                    selected: false
+                });
+            }
+
             renderLayers();
         }
 
@@ -4133,7 +4200,8 @@
                 canvas: createLayerCanvas(),
                 name: `Layer ${layers.length + 1}`,
                 visible: true,
-                opacity: 1
+                opacity: 1,
+                strokes: []
             };
             
             layers.push(newLayer);
@@ -5624,7 +5692,9 @@
 
             if (!floatingSelection && hasActiveEditSelection()) {
                 if (!isPointSelected(x, y)) return false;
-                if (!extractFloatingSelectionFromCurrentLayer()) return false;
+                if (!extractVectorFloatingSelection()) {
+                    if (!extractFloatingSelectionFromCurrentLayer()) return false;
+                }
             }
             if (!floatingSelection) return false;
 
@@ -5715,6 +5785,9 @@
 
             floatingSelection = null;
             clearSelectionState();
+            // Remove committed vector strokes from the layer
+            const layer = layers[currentLayer];
+            if (layer && layer.strokes) layer.strokes = layer.strokes.filter(s => !s.selected);
             renderLayers();
             return true;
         }
@@ -5728,6 +5801,152 @@
                     addToHistory('Transform Selection');
                 }
             }
+        }
+
+        // ── Vector object system ──────────────────────────────────────────────
+
+        function renderStrokeToContext(ctx, stroke) {
+            ctx.save();
+            ctx.globalAlpha = stroke.opacity;
+            ctx.globalCompositeOperation = stroke.compositeOp || 'source-over';
+            if (stroke.tool === 'fill') {
+                ctx.fillStyle = stroke.color;
+                ctx.fillRect(stroke.bx1, stroke.by1, stroke.bx2 - stroke.bx1, stroke.by2 - stroke.by1);
+            } else {
+                ctx.strokeStyle = stroke.color;
+                ctx.lineWidth = stroke.size;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                if (stroke.points.length > 0) {
+                    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+                    for (let i = 1; i < stroke.points.length; i++) {
+                        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+                    }
+                    if (stroke.points.length === 1) ctx.lineTo(stroke.points[0].x + 0.1, stroke.points[0].y + 0.1);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function detectStrokesInSelection() {
+            const layer = layers[currentLayer];
+            if (!layer || !layer.strokes) return;
+            layer.strokes.forEach(s => { s.selected = false; });
+
+            if (selectionMode === 'marquee' && selectedArea && !Array.isArray(selectedArea)) {
+                const sx1 = Math.min(selectedArea.x1, selectedArea.x2);
+                const sy1 = Math.min(selectedArea.y1, selectedArea.y2);
+                const sx2 = Math.max(selectedArea.x1, selectedArea.x2);
+                const sy2 = Math.max(selectedArea.y1, selectedArea.y2);
+                layer.strokes.forEach(s => { if (strokeIntersectsRect(s, sx1, sy1, sx2, sy2)) s.selected = true; });
+            } else if (selectionMode === 'lasso' && Array.isArray(selectedArea) && selectedArea.length > 2) {
+                layer.strokes.forEach(s => { if (strokeIntersectsLasso(s, selectedArea)) s.selected = true; });
+            } else if (selectionMode === 'magicWand' && selectedPixelSet) {
+                layer.strokes.forEach(s => { if (strokeInMagicWandSet(s)) s.selected = true; });
+            }
+        }
+
+        function strokeIntersectsRect(stroke, x1, y1, x2, y2) {
+            if (stroke.bx2 < x1 || stroke.bx1 > x2 || stroke.by2 < y1 || stroke.by1 > y2) return false;
+            if (stroke.tool === 'fill') return true;
+            return stroke.points.some(p => p.x >= x1 && p.x <= x2 && p.y >= y1 && p.y <= y2);
+        }
+
+        function strokeIntersectsLasso(stroke, lassoPoints) {
+            if (stroke.tool === 'fill') {
+                const cx = (stroke.bx1 + stroke.bx2) / 2;
+                const cy = (stroke.by1 + stroke.by2) / 2;
+                return isPointInPolygon(cx, cy, lassoPoints);
+            }
+            return stroke.points.some(p => isPointInPolygon(p.x, p.y, lassoPoints));
+        }
+
+        function strokeInMagicWandSet(stroke) {
+            if (!selectedPixelSet) return false;
+            return stroke.points.some(p => selectedPixelSet.has(`${Math.round(p.x)},${Math.round(p.y)}`));
+        }
+
+        function extractVectorFloatingSelection() {
+            const layer = layers[currentLayer];
+            const sel = (layer && layer.strokes || []).filter(s => s.selected);
+            if (sel.length === 0) return false;
+
+            let bx1 = Infinity, by1 = Infinity, bx2 = -Infinity, by2 = -Infinity;
+            sel.forEach(s => {
+                if (s.bx1 < bx1) bx1 = s.bx1;
+                if (s.by1 < by1) by1 = s.by1;
+                if (s.bx2 > bx2) bx2 = s.bx2;
+                if (s.by2 > by2) by2 = s.by2;
+            });
+            bx1 = Math.max(0, bx1); by1 = Math.max(0, by1);
+            bx2 = Math.min(canvas.width, bx2); by2 = Math.min(canvas.height, by2);
+            const w = bx2 - bx1, h = by2 - by1;
+            if (w < 1 || h < 1) return false;
+
+            // Render selected strokes to floating canvas
+            const floatCanvas = document.createElement('canvas');
+            floatCanvas.width = canvas.width;
+            floatCanvas.height = canvas.height;
+            const fctx = floatCanvas.getContext('2d');
+            sel.forEach(s => renderStrokeToContext(fctx, s));
+
+            // Erase selected strokes from layer canvas
+            const eraseMask = document.createElement('canvas');
+            eraseMask.width = canvas.width;
+            eraseMask.height = canvas.height;
+            const emctx = eraseMask.getContext('2d');
+            sel.forEach(s => renderStrokeToContext(emctx, s));
+            const layerCtx = layer.canvas.getContext('2d');
+            layerCtx.save();
+            layerCtx.globalCompositeOperation = 'destination-out';
+            layerCtx.drawImage(eraseMask, 0, 0);
+            layerCtx.restore();
+
+            floatingSelection = {
+                canvas: floatCanvas,
+                originX: 0, originY: 0,
+                tx: 0, ty: 0,
+                scaleX: 1, scaleY: 1,
+                rotation: 0,
+                bounds: {x: bx1, y: by1, width: w, height: h}
+            };
+            return true;
+        }
+
+        function tryStartSelectionMove(x, y) {
+            // If a floating selection already exists, interact with it
+            if (floatingSelection) {
+                const handleHit = hitTestFloatingHandles(x, y);
+                if (handleHit) {
+                    if (handleHit.type === 'rotate') {
+                        const center = getFloatingSelectionCenter();
+                        moveInteraction = {type: 'rotate-selection', startAngle: Math.atan2(y - center.y, x - center.x), baseRotation: floatingSelection.rotation};
+                    } else {
+                        moveInteraction = {type: 'scale-selection', corner: handleHit.corner, startX: x, startY: y, baseScaleX: floatingSelection.scaleX, baseScaleY: floatingSelection.scaleY};
+                    }
+                    return true;
+                }
+                if (pointInFloatingSelection(x, y)) {
+                    moveInteraction = {type: 'move-selection', startX: x, startY: y, baseTx: floatingSelection.tx, baseTy: floatingSelection.ty};
+                    return true;
+                }
+                // Click outside floating selection — commit it and let the caller start a new selection
+                if (commitFloatingSelection()) addToHistory('Move Object');
+                return false;
+            }
+
+            // No floating selection — check if there is an active selection to lift
+            if (!hasActiveEditSelection() || !isPointSelected(x, y)) return false;
+
+            // Try vector extraction first, fall back to pixel extraction
+            if (!extractVectorFloatingSelection()) {
+                if (!extractFloatingSelectionFromCurrentLayer()) return false;
+            }
+
+            moveInteraction = {type: 'move-selection', startX: x, startY: y, baseTx: 0, baseTy: 0};
+            return true;
         }
 
         // Utility functions
