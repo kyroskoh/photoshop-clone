@@ -5,6 +5,18 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-05-20
+
+### Changed
+- **Crop Tool Interaction**
+  - Crop no longer auto-applies on pointer release.
+  - Crop area can be moved by dragging inside an existing selection.
+  - Crop can be applied with `Enter` or double-click inside the crop area.
+  - `Escape` cancels the active crop area.
+
+### Added
+- Visual crop/selection interaction flow that supports draw-then-adjust before applying.
+
 ## [1.1.0] - 2025-11-10
 
 ### Added

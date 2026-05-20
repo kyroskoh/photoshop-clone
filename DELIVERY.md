@@ -58,7 +58,7 @@
 - **Move Tool** - Pan and reposition canvas
 - **Text Tool** - Add customizable text
 - **Fill Tool** - Flood fill with color matching
-- **Crop Tool** - Image cropping
+- **Crop Tool** - Draw, move, and apply crop areas
 
 ## 🖼️ **How to Use**
 
@@ -95,6 +95,8 @@ Visit: **https://kyroskoh.github.io/photoshop-clone/**
 - `Ctrl+S` - Save/Export
 - `Ctrl+O` - Open Image
 - `Ctrl+N` - New Document
+- `Enter` - Apply active crop area
+- `ESC` - Cancel active crop area
 
 ## 🎯 **Success Criteria - All Achieved**
 

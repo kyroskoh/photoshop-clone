@@ -30,7 +30,7 @@
 - Move Tool: Pan and reposition canvas
 - Text Tool: Add text with customizable font size
 - Fill Tool: Flood fill with color matching
-- Crop Tool: Image cropping functionality
+- Crop Tool: Draw crop bounds, reposition before apply, and commit with Enter/double-click
 
 ### 3. Layer Management ✅
 - Add new layers with custom naming

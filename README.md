@@ -23,7 +23,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Spray Tool** - Airbrush-style painting
 - **Text Tool** - Add text to your images
 - **Fill Tool** - Flood fill with color
-- **Crop Tool** - Crop images to desired size
+- **Crop Tool** - Draw, reposition, and apply crop areas
 
 ### Image Filters (7 Total)
 - Brightness adjustment
@@ -102,6 +102,12 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 5. **Use History** - Click any history item to restore that state, or use Ctrl+Z/Ctrl+Shift+Z
 6. **Save Your Work** - File → Save Project to save as .prophoto file, or File → Save As PNG/JPEG to export image
 
+### Crop Workflow
+- Draw a crop rectangle by clicking and dragging with the Crop tool
+- Reposition the crop area by dragging inside the rectangle
+- Apply the crop with `Enter` or by double-clicking inside the crop area
+- Cancel the active crop area with `ESC`
+
 ### Working with Layers
 - **Background Layer** - Starts with white color, provides a base
 - **Add New Layers** - Click "+ Add Layer" to create transparent layers on top
@@ -124,6 +130,8 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - `Ctrl+Z` - Undo
 - `Ctrl+Shift+Z` - Redo
 - `ESC` - Close dialogs/modals
+- `Enter` - Apply crop (when Crop tool has an active area)
+- `ESC` - Cancel active crop area
 
 ## 📋 Menu Guide
 

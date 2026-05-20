@@ -2058,6 +2058,10 @@
         let showGrid = false;
         let magicWandTolerance = 32;
         let selectedArea = null;
+        let lassoPoints = [];
+        let cropArea = null;
+        let cropInteractionMode = null;
+        let cropDragOffset = { x: 0, y: 0 };
         let lastTouchX = 0;
         let lastTouchY = 0;
         let saveTimeout = null;
@@ -3316,6 +3320,7 @@
             canvas.addEventListener('mousemove', handleMouseMove);
             canvas.addEventListener('mouseup', handleMouseUp);
             canvas.addEventListener('mouseleave', handleMouseUp);
+            canvas.addEventListener('dblclick', handleDoubleClick);
             
             // Touch events for mobile support
             canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -3431,11 +3436,13 @@
                 } else if (currentTool === 'lasso') {
                     endLasso();
                 } else if (currentTool === 'crop') {
-                    endCrop();
+                    endCropInteraction();
                 }
                 
                 // Add to history
-                addToHistory(`Used ${currentTool} tool`);
+                if (currentTool !== 'crop') {
+                    addToHistory(`Used ${currentTool} tool`);
+                }
             }
         }
 
@@ -3454,6 +3461,13 @@
         // Handle mouse up events
         function handleMouseUp(e) {
             handlePointerUp();
+        }
+
+        function handleDoubleClick(e) {
+            const { x, y } = getEventCoordinates(e);
+            if (currentTool === 'crop' && cropArea && isPointInCropArea(x, y)) {
+                endCrop();
+            }
         }
 
         // Handle touch start events
@@ -3565,6 +3579,128 @@
             updateSelectionDisplay();
         }
 
+        function startLasso(x, y) {
+            lassoPoints = [{ x, y }];
+            selectedArea = lassoPoints.slice();
+            updateSelectionDisplay();
+        }
+
+        function updateLasso(x, y) {
+            if (lassoPoints.length === 0) return;
+            lassoPoints.push({ x, y });
+            selectedArea = lassoPoints.slice();
+            updateSelectionDisplay();
+        }
+
+        function endLasso() {
+            if (lassoPoints.length > 2) {
+                const firstPoint = lassoPoints[0];
+                lassoPoints.push({ x: firstPoint.x, y: firstPoint.y });
+            }
+            selectedArea = lassoPoints.slice();
+            updateSelectionDisplay();
+        }
+
+        function normalizeCropRect(rect) {
+            const x = Math.min(rect.x1, rect.x2);
+            const y = Math.min(rect.y1, rect.y2);
+            const width = Math.abs(rect.x2 - rect.x1);
+            const height = Math.abs(rect.y2 - rect.y1);
+            return { x, y, width, height };
+        }
+
+        function isPointInCropArea(x, y) {
+            if (!cropArea) return false;
+            const rect = normalizeCropRect(cropArea);
+            return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
+        }
+
+        function startCrop(x, y) {
+            if (cropArea && isPointInCropArea(x, y)) {
+                const rect = normalizeCropRect(cropArea);
+                cropInteractionMode = 'moving';
+                cropDragOffset.x = x - rect.x;
+                cropDragOffset.y = y - rect.y;
+                selectedArea = cropArea;
+                updateSelectionDisplay();
+                return;
+            }
+
+            cropInteractionMode = 'drawing';
+            cropArea = { x1: x, y1: y, x2: x, y2: y };
+            selectedArea = cropArea;
+            updateSelectionDisplay();
+        }
+
+        function updateCrop(x, y) {
+            if (!cropArea) return;
+
+            if (cropInteractionMode === 'moving') {
+                const rect = normalizeCropRect(cropArea);
+                const maxX = canvas.width - rect.width;
+                const maxY = canvas.height - rect.height;
+                const nextX = Math.max(0, Math.min(maxX, x - cropDragOffset.x));
+                const nextY = Math.max(0, Math.min(maxY, y - cropDragOffset.y));
+                cropArea.x1 = nextX;
+                cropArea.y1 = nextY;
+                cropArea.x2 = nextX + rect.width;
+                cropArea.y2 = nextY + rect.height;
+            } else {
+                cropArea.x2 = x;
+                cropArea.y2 = y;
+            }
+
+            selectedArea = cropArea;
+            updateSelectionDisplay();
+        }
+
+        function endCropInteraction() {
+            cropInteractionMode = null;
+        }
+
+        function endCrop() {
+            if (!cropArea) return;
+
+            const x1 = Math.max(0, Math.min(cropArea.x1, cropArea.x2));
+            const y1 = Math.max(0, Math.min(cropArea.y1, cropArea.y2));
+            const x2 = Math.min(canvas.width, Math.max(cropArea.x1, cropArea.x2));
+            const y2 = Math.min(canvas.height, Math.max(cropArea.y1, cropArea.y2));
+            const cropWidth = Math.round(x2 - x1);
+            const cropHeight = Math.round(y2 - y1);
+
+            if (cropWidth < 1 || cropHeight < 1) {
+                cropInteractionMode = null;
+                cropArea = null;
+                selectedArea = null;
+                renderLayers();
+                return;
+            }
+
+            layers.forEach(layer => {
+                const sourceCanvas = layer.canvas;
+                const croppedCanvas = document.createElement('canvas');
+                croppedCanvas.width = cropWidth;
+                croppedCanvas.height = cropHeight;
+                const croppedCtx = croppedCanvas.getContext('2d');
+                croppedCtx.drawImage(
+                    sourceCanvas,
+                    x1, y1, cropWidth, cropHeight,
+                    0, 0, cropWidth, cropHeight
+                );
+                layer.canvas = croppedCanvas;
+            });
+
+            canvas.width = cropWidth;
+            canvas.height = cropHeight;
+            gridCanvas.width = cropWidth;
+            gridCanvas.height = cropHeight;
+
+            cropInteractionMode = null;
+            cropArea = null;
+            selectedArea = null;
+            renderLayers();
+            addToHistory('Applied crop');
+        }
         // Magic Wand selection
         function selectMagicWand(x, y) {
             const layer = layers[currentLayer];
@@ -5009,6 +5145,19 @@
                         e.preventDefault();
                         fileActions('new');
                         break;
+                }
+            }
+
+            if (currentTool === 'crop' && cropArea) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    endCrop();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cropInteractionMode = null;
+                    cropArea = null;
+                    selectedArea = null;
+                    renderLayers();
                 }
             }
         }
