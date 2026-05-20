@@ -5209,8 +5209,30 @@
         // Selection display
         function updateSelectionDisplay() {
             if (selectedArea) {
-                // This would draw selection outlines
-                // For now, just update the status
+                renderLayers();
+                ctx.save();
+                ctx.strokeStyle = '#00a8ff';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([6, 3]);
+
+                if (Array.isArray(selectedArea)) {
+                    if (selectedArea.length > 1) {
+                        ctx.beginPath();
+                        ctx.moveTo(selectedArea[0].x, selectedArea[0].y);
+                        for (let i = 1; i < selectedArea.length; i++) {
+                            ctx.lineTo(selectedArea[i].x, selectedArea[i].y);
+                        }
+                        ctx.stroke();
+                    }
+                } else if (typeof selectedArea === 'object') {
+                    const x = Math.min(selectedArea.x1, selectedArea.x2);
+                    const y = Math.min(selectedArea.y1, selectedArea.y2);
+                    const w = Math.abs(selectedArea.x2 - selectedArea.x1);
+                    const h = Math.abs(selectedArea.y2 - selectedArea.y1);
+                    ctx.strokeRect(x, y, w, h);
+                }
+
+                ctx.restore();
             }
         }
 
