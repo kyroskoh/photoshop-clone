@@ -2058,6 +2058,8 @@
         let showGrid = false;
         let magicWandTolerance = 32;
         let selectedArea = null;
+        let selectionMode = null;
+        let selectedPixelSet = null;
         let lassoPoints = [];
         let cropArea = null;
         let cropInteractionMode = null;
@@ -3533,6 +3535,7 @@
         function useBrush(x, y, isDrawing) {
             const layer = layers[currentLayer];
             const layerCtx = layer.canvas.getContext('2d');
+            const usingSelectionClip = applySelectionClip(layerCtx);
             
             layerCtx.globalAlpha = opacity;
             
@@ -3565,12 +3568,18 @@
             layerCtx._isDrawing = isDrawing;
             layerCtx._lastX = x;
             layerCtx._lastY = y;
+
+            if (usingSelectionClip) {
+                layerCtx.restore();
+            }
             
             renderLayers();
         }
 
         // Selection tools
         function startMarquee(x, y) {
+            selectionMode = 'marquee';
+            selectedPixelSet = null;
             selectedArea = {x1: x, y1: y, x2: x, y2: y};
             updateSelectionDisplay();
         }
@@ -3587,6 +3596,8 @@
         }
 
         function startLasso(x, y) {
+            selectionMode = 'lasso';
+            selectedPixelSet = null;
             lassoPoints = [{ x, y }];
             selectedArea = lassoPoints.slice();
             updateSelectionDisplay();
@@ -3623,6 +3634,8 @@
         }
 
         function startCrop(x, y) {
+            selectionMode = 'crop';
+            selectedPixelSet = null;
             if (cropArea && isPointInCropArea(x, y)) {
                 const rect = normalizeCropRect(cropArea);
                 cropInteractionMode = 'moving';
@@ -3679,6 +3692,8 @@
                 cropInteractionMode = null;
                 cropArea = null;
                 selectedArea = null;
+                selectionMode = null;
+                selectedPixelSet = null;
                 renderLayers();
                 return;
             }
@@ -3705,6 +3720,8 @@
             cropInteractionMode = null;
             cropArea = null;
             selectedArea = null;
+            selectionMode = null;
+            selectedPixelSet = null;
             renderLayers();
             addToHistory('Applied crop');
         }
@@ -3748,6 +3765,9 @@
                 const [x, y] = key.split(',').map(Number);
                 return {x, y};
             });
+            selectionMode = 'magicWand';
+            selectedPixelSet = visited;
+            updateSelectionDisplay();
             
             addToHistory('Magic Wand Selection');
         }
@@ -3757,6 +3777,10 @@
             const layer = layers[currentLayer];
             const layerCtx = layer.canvas.getContext('2d');
             const data = layerCtx.getImageData(0, 0, layer.canvas.width, layer.canvas.height);
+
+            if (hasActiveEditSelection() && !isPointSelected(startX, startY)) {
+                return;
+            }
             
             const targetColor = getPixelColor(data, startX, startY);
             const hex = hexToRgb(fillColor);
@@ -3769,6 +3793,10 @@
                 const key = `${x},${y}`;
                 
                 if (visited.has(key) || x < 0 || y < 0 || x >= layer.canvas.width || y >= layer.canvas.height) {
+                    continue;
+                }
+
+                if (hasActiveEditSelection() && !isPointSelected(x, y)) {
                     continue;
                 }
                 
@@ -3815,6 +3843,7 @@
                 }
             });
             
+            drawSelectionOverlay();
             updateCanvasSize();
         }
 
@@ -3947,6 +3976,8 @@
                 gridCanvas.height = stateHeight;
                 cropArea = null;
                 selectedArea = null;
+                selectionMode = null;
+                selectedPixelSet = null;
                 
                 // Restore layers
                 layers = [];
@@ -5205,9 +5236,107 @@
                     cropInteractionMode = null;
                     cropArea = null;
                     selectedArea = null;
+                    selectionMode = null;
+                    selectedPixelSet = null;
                     renderLayers();
                 }
             }
+        }
+
+        function hasActiveEditSelection() {
+            return !!selectedArea && (selectionMode === 'marquee' || selectionMode === 'lasso' || selectionMode === 'magicWand');
+        }
+
+        function isPointInPolygon(x, y, points) {
+            let inside = false;
+            for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+                const xi = points[i].x, yi = points[i].y;
+                const xj = points[j].x, yj = points[j].y;
+                const intersect = ((yi > y) !== (yj > y)) &&
+                    (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-9) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function isPointSelected(x, y) {
+            if (!hasActiveEditSelection()) return true;
+
+            if (selectionMode === 'marquee' && typeof selectedArea === 'object' && !Array.isArray(selectedArea)) {
+                const minX = Math.min(selectedArea.x1, selectedArea.x2);
+                const maxX = Math.max(selectedArea.x1, selectedArea.x2);
+                const minY = Math.min(selectedArea.y1, selectedArea.y2);
+                const maxY = Math.max(selectedArea.y1, selectedArea.y2);
+                return x >= minX && x <= maxX && y >= minY && y <= maxY;
+            }
+
+            if (selectionMode === 'lasso' && Array.isArray(selectedArea) && selectedArea.length > 2) {
+                return isPointInPolygon(x, y, selectedArea);
+            }
+
+            if (selectionMode === 'magicWand' && selectedPixelSet) {
+                return selectedPixelSet.has(`${x},${y}`);
+            }
+
+            return true;
+        }
+
+        function applySelectionClip(context) {
+            if (!hasActiveEditSelection()) return false;
+            if (selectionMode === 'magicWand') return false;
+
+            context.save();
+            context.beginPath();
+            if (selectionMode === 'marquee' && typeof selectedArea === 'object' && !Array.isArray(selectedArea)) {
+                const x = Math.min(selectedArea.x1, selectedArea.x2);
+                const y = Math.min(selectedArea.y1, selectedArea.y2);
+                const w = Math.abs(selectedArea.x2 - selectedArea.x1);
+                const h = Math.abs(selectedArea.y2 - selectedArea.y1);
+                context.rect(x, y, w, h);
+            } else if (selectionMode === 'lasso' && Array.isArray(selectedArea) && selectedArea.length > 1) {
+                context.moveTo(selectedArea[0].x, selectedArea[0].y);
+                for (let i = 1; i < selectedArea.length; i++) {
+                    context.lineTo(selectedArea[i].x, selectedArea[i].y);
+                }
+                context.closePath();
+            } else {
+                context.restore();
+                return false;
+            }
+
+            context.clip();
+            return true;
+        }
+
+        function drawSelectionOverlay() {
+            if (!selectedArea) return;
+
+            ctx.save();
+            ctx.strokeStyle = '#00a8ff';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([6, 3]);
+
+            if (Array.isArray(selectedArea)) {
+                if (selectedArea.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(selectedArea[0].x, selectedArea[0].y);
+                    for (let i = 1; i < selectedArea.length; i++) {
+                        ctx.lineTo(selectedArea[i].x, selectedArea[i].y);
+                    }
+                    if (selectionMode === 'lasso') {
+                        ctx.closePath();
+                    }
+                    ctx.stroke();
+                }
+            } else if (typeof selectedArea === 'object') {
+                const x = Math.min(selectedArea.x1, selectedArea.x2);
+                const y = Math.min(selectedArea.y1, selectedArea.y2);
+                const w = Math.abs(selectedArea.x2 - selectedArea.x1);
+                const h = Math.abs(selectedArea.y2 - selectedArea.y1);
+                ctx.strokeRect(x, y, w, h);
+            }
+
+            ctx.restore();
         }
 
         // Utility functions
@@ -5242,32 +5371,7 @@
 
         // Selection display
         function updateSelectionDisplay() {
-            if (selectedArea) {
-                renderLayers();
-                ctx.save();
-                ctx.strokeStyle = '#00a8ff';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([6, 3]);
-
-                if (Array.isArray(selectedArea)) {
-                    if (selectedArea.length > 1) {
-                        ctx.beginPath();
-                        ctx.moveTo(selectedArea[0].x, selectedArea[0].y);
-                        for (let i = 1; i < selectedArea.length; i++) {
-                            ctx.lineTo(selectedArea[i].x, selectedArea[i].y);
-                        }
-                        ctx.stroke();
-                    }
-                } else if (typeof selectedArea === 'object') {
-                    const x = Math.min(selectedArea.x1, selectedArea.x2);
-                    const y = Math.min(selectedArea.y1, selectedArea.y2);
-                    const w = Math.abs(selectedArea.x2 - selectedArea.x1);
-                    const h = Math.abs(selectedArea.y2 - selectedArea.y1);
-                    ctx.strokeRect(x, y, w, h);
-                }
-
-                ctx.restore();
-            }
+            renderLayers();
         }
 
         // Dropdown menu functions
