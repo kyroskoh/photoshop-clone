@@ -22,9 +22,9 @@
 - Spray Tool: Pixelated spray effect
 
 **Selection Tools:**
-- Rectangular Marquee: Click and drag to create rectangular selections
-- Lasso Tool: Freehand selection tool
-- Magic Wand: Color-based selection with tolerance control
+- Rectangular Marquee: Click and drag to create rectangular selections, double-click to finalize
+- Lasso Tool: Freehand selection tool with double-click finalization
+- Magic Wand: Color-based selection with tolerance control and double-click apply at cursor
 
 **Utility Tools:**
 - Move Tool: Pan and reposition canvas

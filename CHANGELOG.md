@@ -5,6 +5,20 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-05-20
+
+### Added
+- **Selection Tool Finalization**
+  - Double-click to apply/finalize **Marquee** selections.
+  - Double-click to apply/finalize **Lasso** selections.
+  - Double-click to trigger **Magic Wand** selection at cursor.
+
+### Changed
+- **Selection Editing Behavior**
+  - Persistent dashed selection overlays are rendered after redraws.
+  - Brush and fill operations now respect active selection bounds.
+  - Selection state handling improved across crop cancel/apply and history restore.
+
 ## [1.2.0] - 2026-05-20
 
 ### Changed
@@ -130,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.2.1** - Double-click finalize for selection tools and persistent selection-bound editing
 - **v1.2.0** - Crop workflow, keyboard shortcut reliability, selection overlay fixes, and lasso selection-bound editing
 - **v1.1.0** - Project management, auto-save, and .prophoto file format
 - **v1.0.0** - Initial release with core editing features

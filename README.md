@@ -4,7 +4,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 **🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
 
-![ProPhoto Editor](https://img.shields.io/badge/version-1.2.0-blue.svg)
+![ProPhoto Editor](https://img.shields.io/badge/version-1.2.1-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
@@ -107,6 +107,12 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - Reposition the crop area by dragging inside the rectangle
 - Apply the crop with `Enter` or by double-clicking inside the crop area
 - Cancel the active crop area with `ESC`
+
+### Selection Workflow
+- Draw **Marquee** or **Lasso** selections, then double-click to finalize.
+- Double-click with **Magic Wand** to select contiguous pixels at the cursor.
+- Active selections stay highlighted with dashed outlines after redraws.
+- Brush and fill operations are constrained to the active selection region.
 
 ### Working with Layers
 - **Background Layer** - Starts with white color, provides a base
