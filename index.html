@@ -3328,8 +3328,8 @@
             canvas.addEventListener('touchend', handleTouchEnd);
             canvas.addEventListener('touchcancel', handleTouchEnd);
             
-            // Keyboard shortcuts
-            document.addEventListener('keydown', handleKeyDown);
+            // Keyboard shortcuts (capture phase to reliably override browser defaults)
+            document.addEventListener('keydown', handleKeyDown, true);
             
             // Prevent context menu
             canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -5123,37 +5123,51 @@
 
         // Keyboard shortcuts
         function handleKeyDown(e) {
-            if (e.ctrlKey || e.metaKey) {
-                switch (e.key) {
-                    case 'z':
+            const target = e.target;
+            const isEditableTarget =
+                target &&
+                (target.tagName === 'INPUT' ||
+                 target.tagName === 'TEXTAREA' ||
+                 target.tagName === 'SELECT' ||
+                 target.isContentEditable);
+
+            if ((e.ctrlKey || e.metaKey) && !isEditableTarget) {
+                switch (e.code) {
+                    case 'KeyZ':
                         e.preventDefault();
+                        e.stopPropagation();
                         if (e.shiftKey) {
                             redoAction();
                         } else {
                             undoAction();
                         }
                         break;
-                    case 's':
+                    case 'KeyS':
                         e.preventDefault();
+                        e.stopPropagation();
                         exportImage();
                         break;
-                    case 'o':
+                    case 'KeyO':
                         e.preventDefault();
+                        e.stopPropagation();
                         fileActions('open');
                         break;
-                    case 'n':
+                    case 'KeyN':
                         e.preventDefault();
+                        e.stopPropagation();
                         fileActions('new');
                         break;
                 }
             }
 
-            if (currentTool === 'crop' && cropArea) {
-                if (e.key === 'Enter') {
+            if (!isEditableTarget && currentTool === 'crop' && cropArea) {
+                if (e.code === 'Enter') {
                     e.preventDefault();
+                    e.stopPropagation();
                     endCrop();
-                } else if (e.key === 'Escape') {
+                } else if (e.code === 'Escape') {
                     e.preventDefault();
+                    e.stopPropagation();
                     cropInteractionMode = null;
                     cropArea = null;
                     selectedArea = null;
