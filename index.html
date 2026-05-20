@@ -5786,7 +5786,6 @@
             floatingSelection = null;
             clearSelectionState();
             // Remove committed vector strokes from the layer
-            const layer = layers[currentLayer];
             if (layer && layer.strokes) layer.strokes = layer.strokes.filter(s => !s.selected);
             renderLayers();
             return true;
