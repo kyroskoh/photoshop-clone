@@ -5,6 +5,26 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-05-20
+
+### Added
+- **Select Menu** — new top-level menu between Layer and Help with:
+  - **Select All** (`Ctrl+A`) — selects the entire canvas as a marquee
+  - **Deselect** (`Ctrl+D`) — clears the active selection
+  - **Reselect** (`Ctrl+Shift+D`) — restores the last cleared selection
+  - **Inverse** (`Ctrl+Shift+I`) — inverts the current selection (swaps selected ↔ unselected pixels)
+  - **Grow** — expands the selection outward by 1 px in 4-connected directions
+  - **Similar** — selects all pixels across the entire canvas whose color matches the average color of the current selection (within Magic Wand tolerance), regardless of contiguity
+  - **Expand...** — morphological dilation by a user-specified number of pixels (circular kernel)
+  - **Contract...** — morphological erosion by a user-specified number of pixels
+  - **Feather...** — softens selection edges via a box-blur pass followed by a 0.5 threshold
+- **Deselect prompt** — switching from a selection tool (Marquee, Lasso, Magic Wand) to a drawing tool while a selection is active shows a modal offering: **Deselect** (clear and switch), **Keep Selection** (switch while constraining drawing to selection), or **Cancel**.
+- **Reselect state** — `clearSelectionState()` now persists the last selection for `Reselect` to restore.
+
+### Changed
+- `Ctrl+D` unified into `selectionDeselect()` (same behaviour, now also commits floating selection).
+- Keyboard shortcuts `Ctrl+A` and `Ctrl+Shift+I` added to the global key handler.
+
 ## [1.5.5] - 2026-05-20
 
 ### Added
@@ -286,6 +306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.6.0** - Select menu (Select All, Deselect, Reselect, Inverse, Grow, Similar, Expand, Contract, Feather); deselect prompt on tool switch
 - **v1.5.5** - WebM export restored & fixed; magic wand performance (Uint8Array bitmask, no browser hang); wand samples composite canvas; localStorage quota fix (historyStates removed from auto-save)
 - **v1.5.4** - Export with Transparency (PNG); flyout Export/Save As submenu grouped by transparency support
 - **v1.5.3** - Shortcut keys in tool tooltips; all 8 export formats (PNG/JPEG/WebP/BMP/GIF/AVIF/TIFF/SVG); fixed inline text editor; clean shape tooltips

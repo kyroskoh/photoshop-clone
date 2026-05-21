@@ -1712,6 +1712,23 @@
                 </div>
             </div>
             <div class="menu-separator"></div>
+            <div class="menu-item" onclick="toggleDropdown('selectMenu')">
+                Select
+                <div class="dropdown-menu" id="selectMenu">
+                    <div class="dropdown-item" onclick="event.stopPropagation(); selectionSelectAll(); hideAllDropdowns();">Select All (Ctrl+A)</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); selectionDeselect(); hideAllDropdowns();">Deselect (Ctrl+D)</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); selectionReselect(); hideAllDropdowns();">Reselect (Ctrl+Shift+D)</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); selectionInverse(); hideAllDropdowns();">Inverse (Ctrl+Shift+I)</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); selectionGrow(); hideAllDropdowns();">Grow</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); selectionSimilar(); hideAllDropdowns();">Similar</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); selectionModify('expand'); hideAllDropdowns();">Expand...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); selectionModify('contract'); hideAllDropdowns();">Contract...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); selectionModify('feather'); hideAllDropdowns();">Feather...</div>
+                </div>
+            </div>
+            <div class="menu-separator"></div>
             <div class="menu-item" onclick="toggleDropdown('layerMenu')">
                 Layer
                 <div class="dropdown-menu" id="layerMenu">
@@ -2000,6 +2017,24 @@
     <!-- Fixed tooltip for left-panel tool buttons (avoids overflow clipping) -->
     <div id="panelTooltip"></div>
 
+        <!-- Deselect Confirmation Modal -->
+        <div id="deselectModal" class="modal" style="display:none;">
+            <div class="modal-content" style="max-width:380px;">
+                <div class="modal-header">
+                    <h2 style="font-size:16px;margin:0;">Active Selection</h2>
+                </div>
+                <div class="modal-body" style="padding:16px 20px;">
+                    <p style="margin:0 0 4px;">You have an active selection.</p>
+                    <p style="margin:0;color:#aaa;font-size:13px;">Deselect it, keep it (drawing will be constrained), or cancel the tool switch.</p>
+                </div>
+                <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid #555;">
+                    <button class="modal-button" onclick="deselectModalDeselect()">Deselect</button>
+                    <button class="modal-button" onclick="deselectModalKeep()">Keep Selection</button>
+                    <button class="modal-button secondary" onclick="deselectModalCancel()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
     <!-- About Modal -->
     <div class="modal-overlay" id="aboutModal" onclick="closeAboutModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
@@ -2008,7 +2043,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.5.5</p>
+                    <p>Version 1.6.0</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2185,6 +2220,8 @@
         let selectedArea = null;
         let selectionMode = null;
         let selectedPixelSet = null;
+        let lastSelectionState = null;   // for Select → Reselect
+        let pendingToolSwitch  = null;   // tool name deferred while deselect modal is shown
         let selectionMaskCanvas = null;
         let selectionBounds = null;
         let floatingSelection = null;
@@ -3755,6 +3792,15 @@
 
         // Select tool
         function selectTool(tool) {
+            // If there's an active pixel selection and we're switching to a drawing tool, prompt
+            const selectionTools = ['marquee', 'lasso', 'magicWand'];
+            const drawingTools   = ['brush', 'pencil', 'eraser', 'spray', 'text', 'fill',
+                                    'line', 'rectangle', 'ellipse', 'zoom', 'crop'];
+            if (selectionTools.includes(currentTool) && drawingTools.includes(tool) && hasActiveEditSelection()) {
+                pendingToolSwitch = tool;
+                document.getElementById('deselectModal').style.display = 'flex';
+                return;
+            }
             if (currentTool === 'move' && floatingSelection && tool !== 'move') {
                 if (commitFloatingSelection()) {
                     addToHistory('Transform Selection');
@@ -6176,12 +6222,23 @@
                         fileActions('new');
                         break;
                     case 'KeyD':
-                        // Deselect
                         e.preventDefault(); e.stopPropagation();
-                        if (floatingSelection) { commitFloatingSelection(); addToHistory('Commit Selection'); }
-                        clearSelectionState();
-                        moveInteraction = null;
-                        renderLayers();
+                        if (e.shiftKey) {
+                            selectionReselect();
+                        } else {
+                            selectionDeselect();
+                        }
+                        break;
+                    case 'KeyA':
+                        if (e.shiftKey) break; // let bare Shift+A fall through (none defined)
+                        e.preventDefault(); e.stopPropagation();
+                        selectionSelectAll();
+                        break;
+                    case 'KeyI':
+                        if (e.shiftKey) {
+                            e.preventDefault(); e.stopPropagation();
+                            selectionInverse();
+                        }
                         break;
                     case 'Equal':
                     case 'NumpadAdd':
@@ -6430,11 +6487,40 @@
         }
 
         function clearSelectionState() {
+            // Persist for Reselect, but only when there was an actual selection
+            if (selectionMode && (selectedPixelSet || selectedArea)) {
+                lastSelectionState = {
+                    mode: selectionMode,
+                    area: selectedArea,
+                    pixelSet: selectedPixelSet,
+                    maskCanvas: selectionMaskCanvas,
+                    bounds: selectionBounds
+                };
+            }
             selectedArea = null;
             selectionMode = null;
             selectedPixelSet = null;
             selectionMaskCanvas = null;
             selectionBounds = null;
+        }
+
+        function deselectModalDeselect() {
+            document.getElementById('deselectModal').style.display = 'none';
+            clearSelectionState();
+            updateSelectionDisplay();
+            const tool = pendingToolSwitch;
+            pendingToolSwitch = null;
+            if (tool) selectTool(tool);
+        }
+        function deselectModalKeep() {
+            document.getElementById('deselectModal').style.display = 'none';
+            const tool = pendingToolSwitch;
+            pendingToolSwitch = null;
+            if (tool) selectTool(tool);
+        }
+        function deselectModalCancel() {
+            document.getElementById('deselectModal').style.display = 'none';
+            pendingToolSwitch = null;
         }
 
         function rebuildSelectionMask() {
@@ -6759,6 +6845,198 @@
             } else if (selectionMode === 'magicWand' && selectedPixelSet) {
                 layer.strokes.forEach(s => { if (strokeInMagicWandSet(s)) s.selected = true; });
             }
+        }
+
+        // ── Selection Menu operations ─────────────────────────────────────────
+
+        // Helper: get a flat Uint8Array mask for the current selection
+        function getCurrentSelectionMask() {
+            const w = canvas.width, h = canvas.height;
+            if (selectionMode === 'magicWand' && selectedPixelSet) {
+                return { mask: selectedPixelSet.mask, w: selectedPixelSet.w, h: selectedPixelSet.h };
+            }
+            // Render marquee / lasso into a pixel mask via the selection mask canvas
+            rebuildSelectionMask();
+            if (!selectionMaskCanvas) return null;
+            const mctx = selectionMaskCanvas.getContext('2d');
+            const img  = mctx.getImageData(0, 0, w, h);
+            const mask = new Uint8Array(w * h);
+            for (let i = 0; i < w * h; i++) {
+                if (img.data[i * 4 + 3] > 0) mask[i] = 1;
+            }
+            return { mask, w, h };
+        }
+
+        // Helper: apply a Uint8Array mask as a magic-wand-style selection
+        function applyMaskSelection(mask, w, h) {
+            let count = 0;
+            for (let i = 0; i < mask.length; i++) if (mask[i]) count++;
+            if (count === 0) { clearSelectionState(); updateSelectionDisplay(); return; }
+            selectedArea     = [];
+            selectionMode    = 'magicWand';
+            selectedPixelSet = { mask, w, h };
+            rebuildSelectionMask();
+            detectStrokesInSelection();
+            updateSelectionDisplay();
+        }
+
+        function selectionSelectAll() {
+            const w = canvas.width, h = canvas.height;
+            clearSelectionState();
+            selectionMode = 'marquee';
+            selectedArea  = { x1: 0, y1: 0, x2: w, y2: h };
+            selectedPixelSet = null;
+            rebuildSelectionMask();
+            detectStrokesInSelection();
+            updateSelectionDisplay();
+            showNotification('Selected all', 1500);
+        }
+
+        function selectionDeselect() {
+            if (floatingSelection) { commitFloatingSelection(); addToHistory('Commit Selection'); }
+            clearSelectionState();
+            moveInteraction = null;
+            renderLayers();
+            updateSelectionDisplay();
+        }
+
+        function selectionReselect() {
+            if (!lastSelectionState) { showNotification('No previous selection to restore', 2000); return; }
+            const s = lastSelectionState;
+            selectionMode      = s.mode;
+            selectedArea       = s.area;
+            selectedPixelSet   = s.pixelSet;
+            selectionMaskCanvas = s.maskCanvas;
+            selectionBounds    = s.bounds;
+            detectStrokesInSelection();
+            updateSelectionDisplay();
+            showNotification('Selection restored', 1500);
+        }
+
+        function selectionInverse() {
+            const r = getCurrentSelectionMask();
+            const w = canvas.width, h = canvas.height;
+            if (!r) {
+                // No selection → inverse = Select All
+                selectionSelectAll(); return;
+            }
+            const inv = new Uint8Array(r.w * r.h);
+            for (let i = 0; i < inv.length; i++) inv[i] = r.mask[i] ? 0 : 1;
+            applyMaskSelection(inv, r.w, r.h);
+            addToHistory('Inverse Selection');
+            showNotification('Selection inverted', 1500);
+        }
+
+        function selectionGrow() {
+            const r = getCurrentSelectionMask();
+            if (!r) { showNotification('No active selection', 1500); return; }
+            const { mask, w, h } = r;
+            const grown = new Uint8Array(w * h);
+            for (let i = 0; i < w * h; i++) {
+                if (!mask[i]) continue;
+                const cx = i % w, cy = (i / w) | 0;
+                grown[i] = 1;
+                if (cx > 0)     grown[i - 1] = 1;
+                if (cx < w - 1) grown[i + 1] = 1;
+                if (cy > 0)     grown[i - w] = 1;
+                if (cy < h - 1) grown[i + w] = 1;
+            }
+            applyMaskSelection(grown, w, h);
+            addToHistory('Grow Selection');
+            showNotification('Selection grown by 1 px', 1500);
+        }
+
+        function selectionSimilar() {
+            const r = getCurrentSelectionMask();
+            if (!r) { showNotification('No active selection', 1500); return; }
+            const { mask, w, h } = r;
+            // Composite visible layers so we sample what the user sees
+            const flat = document.createElement('canvas');
+            flat.width = w; flat.height = h;
+            const flatCtx = flat.getContext('2d');
+            layers.forEach(l => { if (!l.visible) return; flatCtx.globalAlpha = l.opacity; flatCtx.drawImage(l.canvas, 0, 0); });
+            flatCtx.globalAlpha = 1;
+            const px = flatCtx.getImageData(0, 0, w, h).data;
+            const tol = magicWandTolerance;
+            // Collect average target color from selected pixels
+            let rSum = 0, gSum = 0, bSum = 0, aSum = 0, cnt = 0;
+            for (let i = 0; i < w * h; i++) {
+                if (!mask[i]) continue;
+                rSum += px[i*4]; gSum += px[i*4+1]; bSum += px[i*4+2]; aSum += px[i*4+3]; cnt++;
+            }
+            if (cnt === 0) return;
+            const tr = rSum/cnt|0, tg = gSum/cnt|0, tb = bSum/cnt|0, ta = aSum/cnt|0;
+            // Select all pixels in the image matching that color (non-contiguous)
+            const sim = new Uint8Array(w * h);
+            for (let i = 0; i < w * h; i++) {
+                const d = i * 4;
+                if (Math.abs(px[d]-tr)+Math.abs(px[d+1]-tg)+Math.abs(px[d+2]-tb)+Math.abs(px[d+3]-ta) <= tol) sim[i] = 1;
+            }
+            applyMaskSelection(sim, w, h);
+            addToHistory('Select Similar');
+            showNotification('Selected similar colors', 1500);
+        }
+
+        function selectionModify(type) {
+            const r = getCurrentSelectionMask();
+            if (!r) { showNotification('No active selection', 1500); return; }
+            const labels = { expand: 'Expand by (px):', contract: 'Contract by (px):', feather: 'Feather radius (px):' };
+            const raw = prompt(labels[type], '5');
+            if (raw === null) return;
+            const amount = Math.max(1, Math.min(100, parseInt(raw, 10) || 5));
+            const { mask, w, h } = r;
+            const out = new Uint8Array(w * h);
+
+            if (type === 'expand') {
+                // Morphological dilation with circular kernel
+                const r2 = amount * amount;
+                for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+                    if (mask[y*w+x]) { out[y*w+x] = 1; continue; }
+                    outer: for (let dy = -amount; dy <= amount; dy++) for (let dx = -amount; dx <= amount; dx++) {
+                        if (dx*dx+dy*dy > r2) continue;
+                        const nx = x+dx, ny = y+dy;
+                        if (nx>=0 && ny>=0 && nx<w && ny<h && mask[ny*w+nx]) { out[y*w+x] = 1; break outer; }
+                    }
+                }
+            } else if (type === 'contract') {
+                // Morphological erosion with circular kernel
+                const r2 = amount * amount;
+                for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+                    if (!mask[y*w+x]) continue;
+                    let keep = true;
+                    outer: for (let dy = -amount; dy <= amount; dy++) for (let dx = -amount; dx <= amount; dx++) {
+                        if (dx*dx+dy*dy > r2) continue;
+                        const nx = x+dx, ny = y+dy;
+                        if (nx<0 || ny<0 || nx>=w || ny>=h || !mask[ny*w+nx]) { keep = false; break outer; }
+                    }
+                    if (keep) out[y*w+x] = 1;
+                }
+            } else { // feather — box blur on the mask as float, threshold at 0.5
+                const f = new Float32Array(w * h);
+                for (let i = 0; i < w*h; i++) f[i] = mask[i];
+                // Horizontal pass
+                const tmp = new Float32Array(w * h);
+                for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+                    let s = 0, c = 0;
+                    for (let dx = -amount; dx <= amount; dx++) {
+                        const nx = x + dx;
+                        if (nx >= 0 && nx < w) { s += f[y*w+nx]; c++; }
+                    }
+                    tmp[y*w+x] = s / c;
+                }
+                // Vertical pass
+                for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+                    let s = 0, c = 0;
+                    for (let dy = -amount; dy <= amount; dy++) {
+                        const ny = y + dy;
+                        if (ny >= 0 && ny < h) { s += tmp[ny*w+x]; c++; }
+                    }
+                    out[y*w+x] = (s / c) >= 0.5 ? 1 : 0;
+                }
+            }
+            applyMaskSelection(out, w, h);
+            addToHistory(`${type.charAt(0).toUpperCase()+type.slice(1)} Selection`);
+            showNotification(`Selection ${type}ed by ${amount} px`, 1500);
         }
 
         function strokeIntersectsRect(stroke, x1, y1, x2, y2) {

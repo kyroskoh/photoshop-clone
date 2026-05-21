@@ -4,7 +4,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 **🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
 
-![ProPhoto Editor](https://img.shields.io/badge/version-1.5.5-blue.svg)
+![ProPhoto Editor](https://img.shields.io/badge/version-1.6.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
@@ -153,7 +153,10 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - `Ctrl+S` - Save / Export
 - `Ctrl+Z` - Undo
 - `Ctrl+Shift+Z` - Redo
+- `Ctrl+A` - Select All
 - `Ctrl+D` - Deselect / commit floating selection
+- `Ctrl+Shift+D` - Reselect
+- `Ctrl+Shift+I` - Inverse selection
 - `Delete` - Clear current layer
 - `ESC` - Commit floating selection / clear selection
 
@@ -213,6 +216,17 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Delete Layer** - Remove the current layer
 - **Merge Down** - Merge with layer below
 - **Flatten Image** - Combine all layers
+
+### Select Menu
+- **Select All** — Select the entire canvas (`Ctrl+A`)
+- **Deselect** — Clear the active selection (`Ctrl+D`)
+- **Reselect** — Restore the last cleared selection (`Ctrl+Shift+D`)
+- **Inverse** — Invert the selection; everything unselected becomes selected and vice versa (`Ctrl+Shift+I`)
+- **Grow** — Expand the selection outward by 1 pixel
+- **Similar** — Select all pixels in the image similar in colour to the current selection (uses Magic Wand tolerance; not restricted to contiguous regions)
+- **Expand...** — Dilate the selection by a specified number of pixels (circular kernel)
+- **Contract...** — Erode the selection by a specified number of pixels
+- **Feather...** — Soften the selection edge by a specified radius
 
 ### Help Menu
 - **About ProPhoto Editor** - View project information and credits
