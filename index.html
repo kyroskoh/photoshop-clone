@@ -5588,33 +5588,40 @@
         }
 
         // WebM export — records a 3-second canvas animation cycling through layers
-        // (restored from commit 68d4e49 by a2937)
+        // Each layer is shown for ~500 ms (2 fps) so the animation is legible
         let _webmAnimId = null;
+        let _webmLastSwitch = 0;
+        const WEBM_FRAME_MS = 500; // ms per layer frame
         function exportAsWebm() {
             if (_webmAnimId) cancelAnimationFrame(_webmAnimId);
             currentLayer = 0;
-            _webmAnimId = requestAnimationFrame(_webmAnim);
+            _webmLastSwitch = performance.now();
+            _webmDrawFrame();
             _startRecording();
         }
-        function _webmAnim() {
-            currentLayer = (currentLayer + 1) % layers.length;
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(layers[currentLayer].canvas, 0, 0);
-            _webmAnimId = requestAnimationFrame(_webmAnim);
+        function _webmDrawFrame() {
+            const now = performance.now();
+            if (now - _webmLastSwitch >= WEBM_FRAME_MS) {
+                currentLayer = (currentLayer + 1) % layers.length;
+                _webmLastSwitch = now;
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(layers[currentLayer].canvas, 0, 0);
+            }
+            _webmAnimId = requestAnimationFrame(_webmDrawFrame);
         }
         function _startRecording() {
             const chunks = [];
-            const stream = canvas.captureStream();
-            const rec = new MediaRecorder(stream);
-            rec.ondataavailable = e => chunks.push(e.data);
+            const stream = canvas.captureStream(30);
+            const rec = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
             rec.onstop = () => {
                 cancelAnimationFrame(_webmAnimId);
                 _webmAnimId = null;
-                redrawCanvas(); // restore normal canvas state
+                renderLayers(); // restore normal canvas state
                 _exportVid(new Blob(chunks, { type: 'video/webm' }));
             };
-            rec.start();
+            rec.start(100); // collect chunks every 100 ms
             setTimeout(() => rec.stop(), 3000);
         }
         function _exportVid(blob) {
