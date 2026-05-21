@@ -113,10 +113,18 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - Cancel the active crop area with `ESC`
 
 ### Selection Workflow
-- Draw **Marquee** or **Lasso** selections, then double-click to finalize.
-- Double-click with **Magic Wand** to select contiguous pixels at the cursor.
-- Active selections stay highlighted with dashed outlines after redraws.
-- Brush and fill operations are constrained to the active selection region.
+- Draw **Marquee** selections; hold **Shift** to constrain to square.
+- Draw **Lasso** selections freehand; release the mouse to auto-close.
+- Click with **Magic Wand** to select contiguous pixels; uncheck *Contiguous* to select matching pixels across the whole canvas. Adjust tolerance (0–255) in the toolbar.
+- **Combine selections** with modifier keys while any selection tool is active:
+  - **Shift** — Add to selection
+  - **Alt** — Subtract from selection
+  - **Shift+Alt** — Intersect with selection
+  - Persistent mode buttons (☐ ⊕ ⊖ ⊗) in the toolbar let you lock a mode without holding keys.
+- **Move selection border** — drag inside an existing selection with a selection tool to reposition the boundary without lifting pixels; switch to the Move tool to lift and move content.
+- Active selections animate with **marching ants** (black + white dashed border).
+- Drawing tools (brush, pencil, eraser, spray, fill, text) are constrained to the active selection — pixels outside are protected.
+- When switching from a selection tool to a drawing tool with an active selection, a prompt lets you **Deselect**, **Keep Selection** (drawing stays constrained), or **Cancel**.
 
 ### Working with Layers
 - **Background Layer** - Starts with white color, provides a base
@@ -415,26 +423,35 @@ ProPhoto Editor includes comprehensive project management features:
 
 ## 📝 Known Limitations
 
-- Undo/Redo system has limited history (20 steps)
-- Selection tools are basic implementations
-- WebP and AVIF export requires Chrome/Edge/Firefox (not supported in older Safari)
-- No advanced selection manipulation (transform, feather)
-- GIF export uses 3-3-2 color quantization (256 colors); complex images may show banding
+- Undo/Redo history is capped at 20 steps; canvas snapshots are not persisted across page reloads (history labels are restored but pixel-level undo is reset on reload)
+- Only rectangular marquee is available — no elliptical/circle marquee
+- Only freehand lasso — no polygonal lasso tool
+- Magic wand selection border shows a bounding-box outline rather than a pixel-accurate contour (marching ants trace the bounding rectangle, not the individual selected pixels)
+- WebP and AVIF export requires a modern browser with codec support (Chrome 85+, Firefox 93+); not available in older Safari
+- GIF export uses 3-3-2 color quantization (256-colour palette); complex images may show banding
+- Shape tools (line, rectangle, ellipse) only draw outlines — no filled shapes
+- No non-destructive adjustment layers; filters are applied directly to pixel data
 
 ## 🚧 Future Enhancements
 
-- [ ] Advanced selection tools (ellipse marquee, polygon lasso)
-- [ ] Transform tools (rotate, scale, skew)
-- [ ] Additional filters (emboss, edge detect, etc.)
+- [x] Export with transparency (PNG alpha)
+- [x] Advanced selection manipulation — Feather, Expand, Contract, Grow, Similar, Inverse, Reselect
+- [x] Selection combination modes — Add (Shift), Subtract (Alt), Intersect (Shift+Alt) across all selection tools
+- [x] Photoshop-style floating selection — lift, move, scale, and rotate selected content
+- [x] Marching ants animation on selection borders
+- [x] Move selection border without moving content
+- [ ] Elliptical marquee and polygonal lasso tools
+- [ ] Pixel-accurate marching ants contour for magic wand selection
+- [ ] Transform tools — skew and perspective in addition to move/scale/rotate
+- [ ] Filled shape option for rectangle, ellipse, and polygon tools
 - [ ] Gradient tool
-- [ ] Pattern/stamp tool
-- [ ] Adjustment layers
-- [x] Export with transparency
-- [ ] Batch processing
-- [ ] Plugin system
-- [ ] Cloud save integration
+- [ ] Pattern / clone-stamp tool
+- [ ] Additional filters — emboss, edge detect, vignette, noise
+- [ ] Adjustment layers (non-destructive brightness, curves, hue/saturation)
+- [ ] Per-layer blend modes (multiply, screen, overlay, etc.)
+- [ ] Batch processing / scripting
 - [ ] Project templates
-- [ ] Shape fill option (filled vs. outline)
+- [ ] Cloud save integration
 
 ## 🤝 Contributing
 
