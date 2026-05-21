@@ -2195,7 +2195,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.9.3</p>
+                    <p>Version 1.9.4</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2204,7 +2204,7 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
 
-                <p>New in v1.9.3: Selected-element moves now fully clear previous pixels on commit, canvas pointer mapping is accurate at zoom, and layers auto-expand when new elements are recorded.</p>
+                <p>New in v1.9.4: Moved spray elements now retain spray rendering (not converted to brush stroke), and moved shape elements now preserve correct line/rectangle/ellipse geometry.</p>
 
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
@@ -4324,6 +4324,7 @@
                 id: ++strokeIdCounter, tool: 'spray', name: '', color: primaryColor,
                 size: brushSize, opacity: opacity, compositeOp: 'source-over',
                 points: [{x, y}],
+                sprayDots: [],
                 bx1: x - brushSize, by1: y - brushSize, bx2: x + brushSize, by2: y + brushSize,
                 selected: false
             };
@@ -4365,6 +4366,8 @@
                 layerCtx.arc(px, py, dotSize, 0, Math.PI * 2);
                 layerCtx.fill();
                 if (stroke) {
+                    if (!Array.isArray(stroke.sprayDots)) stroke.sprayDots = [];
+                    stroke.sprayDots.push({ x: px, y: py, size: dotSize, alpha: dotAlpha });
                     if (px - dotSize < stroke.bx1) stroke.bx1 = px - dotSize;
                     if (py - dotSize < stroke.by1) stroke.by1 = py - dotSize;
                     if (px + dotSize > stroke.bx2) stroke.bx2 = px + dotSize;
@@ -4458,6 +4461,7 @@
                 id: ++strokeIdCounter, tool: currentTool, name: '', color: primaryColor,
                 size: brushSize, opacity: opacity, compositeOp: 'source-over',
                 points: [shapeStart, shapeEnd],
+                filled: !!shapeFilled,
                 bx1: x1, by1: y1, bx2: x2, by2: y2, selected: false
             });
             shapeStart = null; shapeEnd = null;
@@ -8035,6 +8039,48 @@
             if (stroke.tool === 'fill') {
                 ctx.fillStyle = stroke.color;
                 ctx.fillRect(stroke.bx1, stroke.by1, stroke.bx2 - stroke.bx1, stroke.by2 - stroke.by1);
+            } else if (stroke.tool === 'text') {
+                const x = typeof stroke.x === 'number' ? stroke.x : (stroke.points && stroke.points[0] ? stroke.points[0].x : stroke.bx1);
+                const y = typeof stroke.y === 'number' ? stroke.y : (stroke.points && stroke.points[0] ? stroke.points[0].y : stroke.by2);
+                ctx.fillStyle = stroke.color;
+                ctx.font = `${Math.max(1, stroke.size || 1)}px Arial`;
+                if (stroke.text) ctx.fillText(stroke.text, x, y);
+            } else if (stroke.tool === 'spray' && Array.isArray(stroke.sprayDots) && stroke.sprayDots.length > 0) {
+                ctx.fillStyle = stroke.color;
+                stroke.sprayDots.forEach(dot => {
+                    ctx.globalAlpha = Math.max(0, Math.min(1, (stroke.opacity || 1) * (dot.alpha == null ? 1 : dot.alpha)));
+                    ctx.beginPath();
+                    ctx.arc(dot.x, dot.y, Math.max(0.25, dot.size || 0.5), 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            } else if ((stroke.tool === 'line' || stroke.tool === 'rectangle' || stroke.tool === 'ellipse') && Array.isArray(stroke.points) && stroke.points.length >= 2) {
+                const p1 = stroke.points[0];
+                const p2 = stroke.points[stroke.points.length - 1];
+                ctx.strokeStyle = stroke.color;
+                ctx.fillStyle = stroke.color;
+                ctx.lineWidth = stroke.size;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                if (stroke.tool === 'line') {
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.stroke();
+                } else if (stroke.tool === 'rectangle') {
+                    const x = Math.min(p1.x, p2.x), y = Math.min(p1.y, p2.y);
+                    const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
+                    ctx.rect(x, y, w, h);
+                    if (stroke.filled) ctx.fill();
+                    else ctx.stroke();
+                } else {
+                    const cx = (p1.x + p2.x) / 2, cy = (p1.y + p2.y) / 2;
+                    const rx = Math.abs(p2.x - p1.x) / 2, ry = Math.abs(p2.y - p1.y) / 2;
+                    if (rx > 0 && ry > 0) {
+                        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                        if (stroke.filled) ctx.fill();
+                        else ctx.stroke();
+                    }
+                }
             } else {
                 ctx.strokeStyle = stroke.color;
                 ctx.lineWidth = stroke.size;
@@ -8316,6 +8362,12 @@
             const points = Array.isArray(next.points) ? next.points : [];
             const transformedPoints = points.map(p => applyFloatingTransformToPoint(p.x, p.y, floating, cx, cy));
             next.points = transformedPoints;
+            if (next.tool === 'spray' && Array.isArray(next.sprayDots)) {
+                next.sprayDots = next.sprayDots.map(dot => {
+                    const p = applyFloatingTransformToPoint(dot.x, dot.y, floating, cx, cy);
+                    return { ...dot, x: p.x, y: p.y };
+                });
+            }
 
             if (next.tool === 'text' && transformedPoints.length > 0) {
                 next.x = transformedPoints[0].x;
@@ -8339,7 +8391,20 @@
                 }
             }
 
-            if (transformedPoints.length > 0) {
+            if (next.tool === 'spray' && Array.isArray(next.sprayDots) && next.sprayDots.length > 0) {
+                let bx1 = Infinity, by1 = Infinity, bx2 = -Infinity, by2 = -Infinity;
+                next.sprayDots.forEach(dot => {
+                    const r = Math.max(0.25, dot.size || 0.5);
+                    if (dot.x - r < bx1) bx1 = dot.x - r;
+                    if (dot.y - r < by1) by1 = dot.y - r;
+                    if (dot.x + r > bx2) bx2 = dot.x + r;
+                    if (dot.y + r > by2) by2 = dot.y + r;
+                });
+                next.bx1 = bx1;
+                next.by1 = by1;
+                next.bx2 = bx2;
+                next.by2 = by2;
+            } else if (transformedPoints.length > 0) {
                 let bx1 = Infinity, by1 = Infinity, bx2 = -Infinity, by2 = -Infinity;
                 transformedPoints.forEach(p => {
                     if (p.x < bx1) bx1 = p.x;
