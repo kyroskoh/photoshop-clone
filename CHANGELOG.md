@@ -5,6 +5,39 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-05-20
+
+### Added
+- **Zoom Tool**
+  - New Zoom tool added to the tool panel (shortcut: `Z`).
+  - Click to zoom in; Alt+click to zoom out through discrete zoom steps (10 → 25 → 33 → 50 → 67 → 75 → 100 → 150 → 200 → 300 → 400 → 500%).
+  - Canvas cursor shows `zoom-in` / `zoom-out` and flips when Alt is held.
+- **Inline Text Editor**
+  - Text tool now opens an inline input directly on the canvas at the clicked position instead of using a browser `prompt()` dialog.
+  - Styled with the current primary color and font size (Size slider × 2).
+  - Press **Enter** to commit text to the layer; press **Escape** to cancel.
+  - All keyboard shortcuts are blocked while the inline editor is open — no accidental tool switches while typing.
+  - Clicking elsewhere on the canvas commits the text automatically.
+  - Respects selection clip and the current opacity setting.
+
+### Fixed
+- **Keyboard Shortcut Guard for Text Mode**
+  - Inline text editor uses `stopPropagation` on all `keydown` events, preventing tool shortcuts from firing while typing.
+  - `selectTool()` now calls `commitTextEdit()` before switching, so switching via panel click also commits in-progress text.
+  - A `textEditState` guard in `handleKeyDown` provides an additional safety net.
+
+## [1.5.1] - 2026-05-20
+
+### Added
+- **Full Keyboard Shortcuts for All Tools**
+  - Tool selection: `V` Move · `M` Marquee · `L` Lasso · `W` Magic Wand · `B` Brush · `P` Pencil · `E` Eraser · `A` Spray · `T` Text · `G` Fill · `C` Crop · `\` Line · `R` Rectangle · `O` Ellipse
+  - Brush size: `[` decrease 5 px · `]` increase 5 px
+  - Opacity: `Shift+[` decrease 10% · `Shift+]` increase 10%
+  - Zoom: `Ctrl+=` zoom in · `Ctrl+-` zoom out · `Ctrl+0` fit to screen · `Ctrl+1` actual size (100%)
+  - `Ctrl+D` — deselect / commit floating selection
+  - `Delete` — clear the current layer
+  - `Escape` — commit floating selection and clear selection
+
 ## [1.5.0] - 2026-05-20
 
 ### Added
@@ -211,6 +244,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.5.2** - Inline text editor on canvas; zoom tool added; keyboard shortcuts blocked during text editing
+- **v1.5.1** - Full keyboard shortcuts for all 15 tools, bracket size/opacity control, zoom shortcuts, Ctrl+D deselect, Delete clear layer
 - **v1.5.0** - Per-tool size/opacity memory, fill tolerance slider, fixed flood fill (opacity + performance), canvas fit-to-screen on load, fixed panel tooltips
 - **v1.4.0** - Shape tools (Line, Rectangle, Ellipse); spray tool rewrite with Gaussian particle distribution and continuous emission
 - **v1.3.0** - Vector object system: selection tools detect and move drawn strokes directly; no tool switch required

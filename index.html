@@ -891,6 +891,22 @@
             -ms-touch-action: none;
         }
 
+        /* Inline text editor overlay on the canvas */
+        .canvas-text-input {
+            position: absolute;
+            background: transparent;
+            border: none;
+            border-bottom: 2px dashed rgba(100, 160, 255, 0.8);
+            outline: none;
+            padding: 0 2px;
+            margin: 0;
+            z-index: 200;
+            white-space: nowrap;
+            min-width: 4px;
+            pointer-events: auto;
+            caret-color: rgba(100, 160, 255, 1);
+        }
+
         .canvas-wrapper.pan-mode {
             cursor: grab;
         }
@@ -1786,7 +1802,12 @@
                         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="4" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="4" y="14" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="14" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="lineTool" onclick="selectTool('line')" title="Line Tool (Shift=45°)">
+                <button class="tool-panel-button" id="zoomTool" onclick="selectTool('zoom')" title="Zoom Tool [Z] (Click=in, Alt+Click=out)">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="2" fill="none"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="10" y1="7" x2="10" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="lineTool" onclick="selectTool('line')" title="Line Tool [\ ] (Shift=45°)">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                     </div>
@@ -1929,7 +1950,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.5.0</p>
+                    <p>Version 1.5.2</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -1938,14 +1959,14 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
 
-                <p>New in v1.4.0: Shape tools (Line, Rectangle, Ellipse with Shift-key constraints), rewritten spray tool with Gaussian particle distribution, fixed flood fill with tolerance slider and opacity support, per-tool size/opacity memory, canvas starts in fit-to-screen mode, and improved panel tooltips.</p>
+                <p>New in v1.5.2: Inline text editor (no more browser prompt — type directly on canvas, Enter to commit, Escape to cancel). Keyboard shortcuts are blocked while typing. Zoom tool added to the tool panel (Z, click=zoom in, Alt+click=zoom out).</p>
 
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
                 Full-stack developer passionate about creating powerful web applications.</p>
 
                 <h3>Features</h3>
-                <p>✓ 14 Professional drawing, shape & selection tools<br>
+                <p>✓ 15 Professional drawing, shape & selection tools<br>
                 ✓ Multi-layer support with opacity control<br>
                 ✓ 7 Image filters and effects<br>
                 ✓ Undo/Redo system (20+ steps)<br>
@@ -2118,6 +2139,7 @@
         let sprayInterval = null;
         let sprayX = 0, sprayY = 0;
         let fillTolerance = 30;
+        let textEditState = null; // { x, y, input, fontSize } while inline text editor is open
 
         // Per-tool settings memory (size and opacity remembered per tool)
         const toolSettings = {
@@ -2132,6 +2154,7 @@
             text:      { size: 24, opacity: 100 },
             fill:      { size: 10, opacity: 100 },
             crop:      { size: 10, opacity: 100 },
+            zoom:      { size: 10, opacity: 100 },
             line:      { size: 2,  opacity: 100 },
             rectangle: { size: 2,  opacity: 100 },
             ellipse:   { size: 2,  opacity: 100 },
@@ -3452,7 +3475,15 @@
             
             // Keyboard shortcuts (capture phase to reliably override browser defaults)
             document.addEventListener('keydown', handleKeyDown, true);
-            
+
+            // Flip zoom cursor when Alt is held
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Alt' && currentTool === 'zoom') canvas.style.cursor = 'zoom-out';
+            }, true);
+            document.addEventListener('keyup', e => {
+                if (e.key === 'Alt' && currentTool === 'zoom') canvas.style.cursor = 'zoom-in';
+            }, true);
+
             // Prevent context menu
             canvas.addEventListener('contextmenu', e => e.preventDefault());
         }
@@ -3506,7 +3537,11 @@
             startY = y;
             isDrawing = true;
             
-            if (currentTool === 'brush' || currentTool === 'pencil' || currentTool === 'eraser') {
+            if (currentTool === 'zoom') {
+                zoomStep(e.altKey ? -1 : 1);
+                isDrawing = false; // zoom is a one-shot action, don't enter draw mode
+                return;
+            } else if (currentTool === 'brush' || currentTool === 'pencil' || currentTool === 'eraser') {
                 useBrush(x, y, false);
             } else if (currentTool === 'spray') {
                 startSpray(x, y);
@@ -3691,6 +3726,7 @@
             if (sprayInterval) { clearInterval(sprayInterval); sprayInterval = null; }
             shapeStart = null;
             shapeEnd = null;
+            commitTextEdit(); // commit any in-progress inline text before switching
 
             // Save current tool's size/opacity before switching
             if (toolSettings[currentTool]) {
@@ -3720,6 +3756,8 @@
             // Update cursor
             if (tool === 'move') {
                 canvas.style.cursor = 'grab';
+            } else if (tool === 'zoom') {
+                canvas.style.cursor = 'zoom-in';
             } else {
                 canvas.style.cursor = 'crosshair';
             }
@@ -4243,21 +4281,83 @@
             renderLayers();
         }
 
-        // Text tool
+        // Text tool — inline editor on the canvas
         function showTextDialog(x, y) {
-            const text = prompt('Enter text:');
-            if (text) {
+            commitTextEdit(); // close any existing editor first
+
+            const fontSize = Math.max(8, brushSize * 2);
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'canvas-text-input';
+            input.style.left   = x + 'px';
+            input.style.top    = (y - fontSize) + 'px';
+            input.style.fontSize   = fontSize + 'px';
+            input.style.fontFamily = 'Arial, sans-serif';
+            input.style.color      = primaryColor;
+            input.style.width      = '4px';
+
+            canvasWrapper.appendChild(input);
+            textEditState = { x, y, input, fontSize };
+
+            // Auto-resize width as user types
+            input.addEventListener('input', () => {
+                input.style.width = '4px';
+                input.style.width = input.scrollWidth + 'px';
+            });
+
+            input.addEventListener('keydown', (e) => {
+                // stopPropagation so no tool shortcuts fire while typing
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitTextEdit();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelTextEdit();
+                }
+            });
+
+            // Commit on blur (user clicks canvas or elsewhere)
+            input.addEventListener('blur', () => {
+                // Use setTimeout to let click events on canvas settle first
+                setTimeout(() => {
+                    if (textEditState && textEditState.input === input) {
+                        commitTextEdit();
+                    }
+                }, 100);
+            });
+
+            input.focus();
+        }
+
+        function commitTextEdit() {
+            if (!textEditState) return;
+            const { x, y, input, fontSize } = textEditState;
+            const text = input.value;
+            textEditState = null;
+            input.remove();
+
+            if (text.trim()) {
                 const layer = layers[currentLayer];
                 const layerCtx = layer.canvas.getContext('2d');
-                
+                const usingSelectionClip = applySelectionClip(layerCtx);
+                layerCtx.save();
                 layerCtx.globalAlpha = opacity;
                 layerCtx.fillStyle = primaryColor;
-                layerCtx.font = `${brushSize * 2}px Arial`;
+                layerCtx.font = `${fontSize}px Arial`;
                 layerCtx.fillText(text, x, y);
-                
+                layerCtx.restore();
+                if (usingSelectionClip) layerCtx.restore();
                 renderLayers();
                 addToHistory('Text Added');
+                markUnsaved();
             }
+        }
+
+        function cancelTextEdit() {
+            if (!textEditState) return;
+            textEditState.input.remove();
+            textEditState = null;
         }
 
         // Render all layers
@@ -5683,51 +5783,174 @@
                  target.tagName === 'SELECT' ||
                  target.isContentEditable);
 
+            // Ctrl / Cmd shortcuts
             if ((e.ctrlKey || e.metaKey) && !isEditableTarget) {
                 switch (e.code) {
                     case 'KeyZ':
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (e.shiftKey) {
-                            redoAction();
-                        } else {
-                            undoAction();
-                        }
+                        e.preventDefault(); e.stopPropagation();
+                        if (e.shiftKey) redoAction(); else undoAction();
                         break;
                     case 'KeyS':
-                        e.preventDefault();
-                        e.stopPropagation();
+                        e.preventDefault(); e.stopPropagation();
                         exportImage();
                         break;
                     case 'KeyO':
-                        e.preventDefault();
-                        e.stopPropagation();
+                        e.preventDefault(); e.stopPropagation();
                         fileActions('open');
                         break;
                     case 'KeyN':
-                        e.preventDefault();
-                        e.stopPropagation();
+                        e.preventDefault(); e.stopPropagation();
                         fileActions('new');
                         break;
+                    case 'KeyD':
+                        // Deselect
+                        e.preventDefault(); e.stopPropagation();
+                        if (floatingSelection) { commitFloatingSelection(); addToHistory('Commit Selection'); }
+                        clearSelectionState();
+                        moveInteraction = null;
+                        renderLayers();
+                        break;
+                    case 'Equal':
+                    case 'NumpadAdd':
+                        // Ctrl+= zoom in
+                        e.preventDefault(); e.stopPropagation();
+                        zoomStep(1);
+                        break;
+                    case 'Minus':
+                    case 'NumpadSubtract':
+                        // Ctrl+- zoom out
+                        e.preventDefault(); e.stopPropagation();
+                        zoomStep(-1);
+                        break;
+                    case 'Digit0':
+                        // Ctrl+0 fit to screen
+                        e.preventDefault(); e.stopPropagation();
+                        fitToScreen();
+                        break;
+                    case 'Digit1':
+                        // Ctrl+1 actual size
+                        e.preventDefault(); e.stopPropagation();
+                        actualSize();
+                        break;
                 }
+                return; // don't process bare-key shortcuts when Ctrl is held
             }
 
-            if (!isEditableTarget && currentTool === 'crop' && cropArea) {
+            if (isEditableTarget) return;
+
+            // Crop context: Enter applies, Escape cancels
+            if (currentTool === 'crop' && cropArea) {
                 if (e.code === 'Enter') {
-                    e.preventDefault();
-                    e.stopPropagation();
+                    e.preventDefault(); e.stopPropagation();
                     endCrop();
+                    return;
                 } else if (e.code === 'Escape') {
-                    e.preventDefault();
-                    e.stopPropagation();
+                    e.preventDefault(); e.stopPropagation();
                     cropInteractionMode = null;
                     cropArea = null;
                     clearSelectionState();
                     floatingSelection = null;
                     moveInteraction = null;
                     renderLayers();
+                    return;
                 }
             }
+
+            // Escape: commit floating selection / clear selection
+            if (e.code === 'Escape') {
+                e.preventDefault(); e.stopPropagation();
+                if (floatingSelection) { commitFloatingSelection(); addToHistory('Commit Selection'); }
+                clearSelectionState();
+                moveInteraction = null;
+                renderLayers();
+                return;
+            }
+
+            // Delete / Backspace: clear current layer (when no active modal input)
+            if (e.code === 'Delete' || e.code === 'Backspace') {
+                const anyModal = document.querySelector('.modal-overlay[style*="flex"], .modal-overlay.show');
+                if (!anyModal) {
+                    e.preventDefault(); e.stopPropagation();
+                    clearCanvas();
+                    return;
+                }
+            }
+
+            // Bracket keys: adjust brush size and opacity
+            if (e.code === 'BracketLeft') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    adjustOpacity(-10);
+                } else {
+                    adjustBrushSize(-5);
+                }
+                return;
+            }
+            if (e.code === 'BracketRight') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    adjustOpacity(10);
+                } else {
+                    adjustBrushSize(5);
+                }
+                return;
+            }
+
+            // Tool selection shortcuts (no modifier, no editable target)
+            // Guard: if inline text editor is open, stopPropagation in its keydown
+            // already prevents us reaching here — this is just a safety net.
+            if (textEditState) return;
+
+            if (!e.shiftKey && !e.altKey) {
+                switch (e.code) {
+                    case 'KeyV': e.preventDefault(); selectTool('move');      break;
+                    case 'KeyM': e.preventDefault(); selectTool('marquee');   break;
+                    case 'KeyL': e.preventDefault(); selectTool('lasso');     break;
+                    case 'KeyW': e.preventDefault(); selectTool('magicWand'); break;
+                    case 'KeyB': e.preventDefault(); selectTool('brush');     break;
+                    case 'KeyP': e.preventDefault(); selectTool('pencil');    break;
+                    case 'KeyE': e.preventDefault(); selectTool('eraser');    break;
+                    case 'KeyA': e.preventDefault(); selectTool('spray');     break;
+                    case 'KeyT': e.preventDefault(); selectTool('text');      break;
+                    case 'KeyG': e.preventDefault(); selectTool('fill');      break;
+                    case 'KeyZ':    e.preventDefault(); selectTool('zoom');      break;
+                    case 'KeyC':    e.preventDefault(); selectTool('crop');      break;
+                    case 'Backslash': e.preventDefault(); selectTool('line'); break;
+                    case 'KeyR':    e.preventDefault(); selectTool('rectangle'); break;
+                    case 'KeyO':    e.preventDefault(); selectTool('ellipse');   break;
+                }
+            }
+        }
+
+        // Adjust brush size by delta, clamped to 1-100
+        function adjustBrushSize(delta) {
+            brushSize = Math.max(1, Math.min(100, brushSize + delta));
+            if (toolSettings[currentTool]) toolSettings[currentTool].size = brushSize;
+            document.getElementById('sizeSlider').value = brushSize;
+            document.getElementById('sizeDisplay').textContent = brushSize;
+        }
+
+        // Adjust opacity by delta (in percent), clamped to 1-100
+        function adjustOpacity(delta) {
+            const pct = Math.max(1, Math.min(100, Math.round(opacity * 100) + delta));
+            opacity = pct / 100;
+            if (toolSettings[currentTool]) toolSettings[currentTool].opacity = pct;
+            document.getElementById('opacitySlider').value = pct;
+            document.getElementById('opacityDisplay').textContent = pct;
+        }
+
+        // Zoom by a discrete step (positive = in, negative = out)
+        function zoomStep(direction) {
+            const steps = [10, 25, 33, 50, 67, 75, 100, 150, 200, 300, 400, 500];
+            const cur = Math.round(zoom * 100);
+            let next;
+            if (direction > 0) {
+                next = steps.find(s => s > cur) || 500;
+            } else {
+                next = [...steps].reverse().find(s => s < cur) || 10;
+            }
+            document.getElementById('zoomSlider').value = next;
+            updateZoom();
         }
 
         function hasActiveEditSelection() {

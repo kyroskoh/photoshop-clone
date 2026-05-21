@@ -4,7 +4,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 **🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
 
-![ProPhoto Editor](https://img.shields.io/badge/version-1.5.0-blue.svg)
+![ProPhoto Editor](https://img.shields.io/badge/version-1.5.2-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
@@ -21,9 +21,10 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Pencil Tool** - Draw precise lines
 - **Eraser Tool** - Remove content with customizable size
 - **Spray Tool** - Airbrush-style painting with Gaussian particle distribution and pressure simulation
-- **Text Tool** - Add text to your images
+- **Text Tool** - Click canvas to open inline text editor; type directly, Enter to commit, Escape to cancel
 - **Fill Tool** - Flood fill with color
 - **Crop Tool** - Draw, reposition, and apply crop areas
+- **Zoom Tool** - Click to zoom in; Alt+click to zoom out; shortcut: Z
 - **Line Tool** - Draw straight lines; Shift snaps to 45° increments
 - **Rectangle Tool** - Draw outlined rectangles; Shift constrains to square
 - **Ellipse Tool** - Draw outlined ellipses; Shift constrains to circle
@@ -133,14 +134,44 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Works Offline** - No internet required after initial load
 
 ### Keyboard Shortcuts
+
+#### Tool Selection
+| Key   | Tool       | Key   | Tool      |
+|-------|------------|-------|-----------|
+| `V`   | Move       | `B`   | Brush     |
+| `M`   | Marquee    | `P`   | Pencil    |
+| `L`   | Lasso      | `E`   | Eraser    |
+| `W`   | Magic Wand | `A`   | Spray     |
+| `C`   | Crop       | `T`   | Text      |
+| `G`   | Fill       | `Z`   | Zoom      |
+| `\`   | Line       | `R`   | Rectangle |
+| `O`   | Ellipse    |       |           |
+
+#### Canvas & Editing
 - `Ctrl+N` - New Document
 - `Ctrl+O` - Open Image
-- `Ctrl+S` - Save Image
+- `Ctrl+S` - Save / Export
 - `Ctrl+Z` - Undo
 - `Ctrl+Shift+Z` - Redo
-- `ESC` - Close dialogs/modals
-- `Enter` - Apply crop (when Crop tool has an active area)
-- `ESC` - Cancel active crop area
+- `Ctrl+D` - Deselect / commit floating selection
+- `Delete` - Clear current layer
+- `ESC` - Commit floating selection / clear selection
+
+#### Crop
+- `Enter` - Apply crop area
+- `ESC` - Cancel crop area
+
+#### Zoom
+- `Ctrl+=` - Zoom in (steps: 10 → 25 → 33 → 50 → … → 500%)
+- `Ctrl+-` - Zoom out
+- `Ctrl+0` - Fit canvas to screen
+- `Ctrl+1` - Actual size (100%)
+
+#### Brush / Tool Size & Opacity
+- `[` - Decrease size by 5 px
+- `]` - Increase size by 5 px
+- `Shift+[` - Decrease opacity by 10%
+- `Shift+]` - Increase opacity by 10%
 
 ## 📋 Menu Guide
 
