@@ -2057,6 +2057,23 @@
             </div>
         </div>
 
+    <!-- Unsaved Changes Modal (shown before New Document / destructive actions) -->
+        <div id="unsavedChangesModal" class="modal" style="display:none;">
+            <div class="modal-content" style="max-width:380px;">
+                <div class="modal-header">
+                    <h2 style="font-size:16px;margin:0;">Unsaved Changes</h2>
+                </div>
+                <div class="modal-body" style="padding:16px 20px;">
+                    <p style="margin:0 0 4px;">You have unsaved changes that will be lost.</p>
+                    <p style="margin:0;color:#aaa;font-size:13px;">Save your work first, or discard and continue.</p>
+                </div>
+                <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid #555;">
+                    <button class="modal-button" onclick="unsavedModalDiscard()">Discard &amp; Continue</button>
+                    <button class="modal-button secondary" onclick="unsavedModalCancel()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
     <!-- About Modal -->
     <div class="modal-overlay" id="aboutModal" onclick="closeAboutModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
@@ -2244,6 +2261,7 @@
         let selectedPixelSet = null;
         let lastSelectionState = null;   // for Select → Reselect
         let pendingToolSwitch  = null;   // tool name deferred while deselect modal is shown
+        let skipSelectionModal = false;  // bypass modal guard once after "Keep Selection"
         let selectionMaskCanvas = null;
         let selectionBounds = null;
         let floatingSelection = null;
@@ -3867,9 +3885,13 @@
             const drawingTools   = ['brush', 'pencil', 'eraser', 'spray', 'text', 'fill',
                                     'line', 'rectangle', 'ellipse', 'zoom', 'crop'];
             if (selectionTools.includes(currentTool) && drawingTools.includes(tool) && hasActiveEditSelection()) {
-                pendingToolSwitch = tool;
-                document.getElementById('deselectModal').style.display = 'flex';
-                return;
+                if (skipSelectionModal) {
+                    skipSelectionModal = false; // consume the bypass flag and fall through
+                } else {
+                    pendingToolSwitch = tool;
+                    document.getElementById('deselectModal').style.display = 'flex';
+                    return;
+                }
             }
             if (currentTool === 'move' && floatingSelection && tool !== 'move') {
                 if (commitFloatingSelection()) {
@@ -5406,13 +5428,31 @@
         }
 
         // File operations
+        let _pendingFileAction = null; // file action deferred while unsaved-changes modal is open
+
         function fileActions(action) {
+            if (action === 'new' && hasUnsavedChanges) {
+                _pendingFileAction = 'new';
+                document.getElementById('unsavedChangesModal').style.display = 'flex';
+                return;
+            }
             if (action === 'new') {
-                // Show new document dialog
                 showNewDocumentDialog();
             } else if (action === 'open') {
                 document.getElementById('fileInput').click();
             }
+        }
+
+        function unsavedModalDiscard() {
+            document.getElementById('unsavedChangesModal').style.display = 'none';
+            const action = _pendingFileAction;
+            _pendingFileAction = null;
+            if (action === 'new') showNewDocumentDialog();
+        }
+
+        function unsavedModalCancel() {
+            document.getElementById('unsavedChangesModal').style.display = 'none';
+            _pendingFileAction = null;
         }
 
         function loadImage(event) {
@@ -6793,7 +6833,10 @@
             document.getElementById('deselectModal').style.display = 'none';
             const tool = pendingToolSwitch;
             pendingToolSwitch = null;
-            if (tool) selectTool(tool);
+            if (tool) {
+                skipSelectionModal = true; // allow selectTool to proceed past the modal guard
+                selectTool(tool);
+            }
         }
         function deselectModalCancel() {
             document.getElementById('deselectModal').style.display = 'none';
