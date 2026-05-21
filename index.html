@@ -2195,7 +2195,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.9.0</p>
+                    <p>Version 1.9.1</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2204,7 +2204,7 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
 
-                <p>New in v1.5.3: Shortcut keys shown in all tool tooltips. Export formats expanded to PNG, JPEG, WebP, and BMP. Fixed inline text editor positioning. Shape tool tooltips cleaned up.</p>
+                <p>New in v1.9.1: Layer element list now updates immediately as elements are created, history shows newest actions at the top, and moved selected elements keep their registered coordinates in sync.</p>
 
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
@@ -2949,7 +2949,9 @@
                 name: 'Background',
                 visible: true,
                 opacity: 1,
-                locked: false
+                locked: false,
+                expanded: false,
+                strokes: []
             }];
 
             currentLayer = 0;
@@ -2993,7 +2995,9 @@
                 name: 'Background',
                 visible: true,
                 opacity: 1,
-                locked: false
+                locked: false,
+                expanded: false,
+                strokes: []
             }];
 
             currentLayer = 0;
@@ -3104,12 +3108,7 @@
                         width: canvas.width,
                         height: canvas.height
                     },
-                    layers: layers.map(layer => ({
-                        imageData: layer.canvas.toDataURL('image/png'),
-                        name: layer.name,
-                        visible: layer.visible,
-                        opacity: layer.opacity
-                    })),
+                    layers: layers.map(layer => ({ ...serializeLayer(layer) })),
                     currentLayer: currentLayer,
                     colors: {
                         primary: primaryColor,
@@ -3176,13 +3175,7 @@
                 state.layers.forEach((layerData, i) => {
                     const img = new Image();
                     img.onload = function() {
-                        const newLayer = {
-                            canvas: createLayerCanvas(),
-                            name: layerData.name,
-                            visible: layerData.visible !== undefined ? layerData.visible : true,
-                            opacity: layerData.opacity !== undefined ? layerData.opacity : 1,
-                            locked: layerData.locked || false
-                        };
+                        const newLayer = hydrateLayerFromData(layerData);
                         
                         const layerCtx = newLayer.canvas.getContext('2d');
                         layerCtx.drawImage(img, 0, 0);
@@ -3707,6 +3700,35 @@
             const layerCtx = layerCanvas.getContext('2d');
             layerCtx.clearRect(0, 0, layerCanvas.width, layerCanvas.height);
             return layerCanvas;
+        }
+
+        function cloneStrokes(strokes) {
+            if (!Array.isArray(strokes)) return [];
+            return JSON.parse(JSON.stringify(strokes));
+        }
+
+        function serializeLayer(layer) {
+            return {
+                imageData: layer.canvas.toDataURL('image/png'),
+                name: layer.name,
+                visible: layer.visible,
+                opacity: layer.opacity,
+                locked: layer.locked || false,
+                expanded: layer.expanded || false,
+                strokes: cloneStrokes(layer.strokes)
+            };
+        }
+
+        function hydrateLayerFromData(layerData) {
+            return {
+                canvas: createLayerCanvas(),
+                name: layerData.name,
+                visible: layerData.visible !== undefined ? layerData.visible : true,
+                opacity: layerData.opacity !== undefined ? layerData.opacity : 1,
+                locked: layerData.locked || false,
+                expanded: layerData.expanded || false,
+                strokes: cloneStrokes(layerData.strokes)
+            };
         }
 
         // Initialize color palette
@@ -4271,6 +4293,7 @@
                     if (!layer.strokes) layer.strokes = [];
                     layer.strokes.push(stroke);
                     currentStrokeId = stroke.id;
+                    updateLayerList();
                 } else if (currentStrokeId !== null) {
                     const stroke = (layer.strokes || []).find(s => s.id === currentStrokeId);
                     if (stroke) {
@@ -4301,6 +4324,7 @@
             };
             layer.strokes.push(stroke);
             currentStrokeId = stroke.id;
+            updateLayerList();
             sprayX = x; sprayY = y;
             if (sprayInterval) clearInterval(sprayInterval);
             sprayInterval = setInterval(() => {
@@ -4431,6 +4455,7 @@
                 bx1: x1, by1: y1, bx2: x2, by2: y2, selected: false
             });
             shapeStart = null; shapeEnd = null;
+            updateLayerList();
             renderLayers();
         }
 
@@ -4938,6 +4963,7 @@
                     points: [{x: startX, y: startY}],
                     bx1, by1, bx2: bx2 + 1, by2: by2 + 1, selected: false
                 });
+                updateLayerList();
             }
 
             renderLayers();
@@ -4998,8 +5024,30 @@
                 layerCtx.fillStyle = primaryColor;
                 layerCtx.font = `${fontSize}px Arial`;
                 layerCtx.fillText(text, x, y);
+                const textWidth = layerCtx.measureText(text).width;
                 layerCtx.restore();
                 if (usingSelectionClip) layerCtx.restore();
+                if (!layer.strokes) layer.strokes = [];
+                layer.strokes.push({
+                    id: ++strokeIdCounter,
+                    tool: 'text',
+                    text: text,
+                    name: '',
+                    color: primaryColor,
+                    x: x,
+                    y: y,
+                    textWidth: textWidth,
+                    size: fontSize,
+                    opacity: opacity,
+                    compositeOp: 'source-over',
+                    points: [{ x, y }],
+                    bx1: x,
+                    by1: y - fontSize,
+                    bx2: x + textWidth,
+                    by2: y,
+                    selected: false
+                });
+                updateLayerList();
                 renderLayers();
                 addToHistory('Text Added');
                 markUnsaved();
@@ -5129,19 +5177,7 @@
                     width: canvas.width,
                     height: canvas.height
                 },
-                layers: layers.map(layer => {
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = layer.canvas.width;
-                    tempCanvas.height = layer.canvas.height;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCtx.drawImage(layer.canvas, 0, 0);
-                    return {
-                        imageData: tempCanvas.toDataURL(),
-                        name: layer.name,
-                        visible: layer.visible,
-                        opacity: layer.opacity
-                    };
-                }),
+                layers: layers.map(layer => ({ ...serializeLayer(layer) })),
                 currentLayer: currentLayer
             };
             return state;
@@ -5190,13 +5226,14 @@
             const historyList = document.getElementById('historyList');
             historyList.innerHTML = '';
             
-            history.forEach((action, index) => {
+            for (let index = history.length - 1; index >= 0; index--) {
+                const action = history[index];
                 const item = document.createElement('div');
                 item.className = 'history-item' + (index === historyIndex ? ' active' : '');
                 item.textContent = action;
                 item.onclick = () => restoreFromHistory(index);
                 historyList.appendChild(item);
-            });
+            }
             
             // Update undo/redo button states
             updateUndoRedoButtons();
@@ -5259,13 +5296,7 @@
                 state.layers.forEach((layerData, i) => {
                     const img = new Image();
                     img.onload = function() {
-                        const newLayer = {
-                            canvas: createLayerCanvas(),
-                            name: layerData.name,
-                            visible: layerData.visible,
-                            opacity: layerData.opacity,
-                            locked: layerData.locked || false
-                        };
+                        const newLayer = hydrateLayerFromData(layerData);
 
                         const layerCtx = newLayer.canvas.getContext('2d');
                         layerCtx.drawImage(img, 0, 0);
@@ -5500,7 +5531,11 @@
                             selectedElementInfo.strokeId === stroke.id;
                         row.className = 'layer-element-item' + (isSelected ? ' selected' : '');
 
-                        const displayName = stroke.name || `${stroke.tool} #${si + 1}`;
+                        const preview = (stroke.text || '').replace(/\s+/g, ' ').trim();
+                        const defaultTextLabel = preview
+                            ? `Text: "${preview.length > 24 ? preview.slice(0, 24) + '...' : preview}"`
+                            : `text #${si + 1}`;
+                        const displayName = stroke.name || (stroke.tool === 'text' ? defaultTextLabel : `${stroke.tool} #${si + 1}`);
                         const iconSpan = document.createElement('span');
                         iconSpan.className = 'elem-icon';
                         iconSpan.textContent = toolIcons[stroke.tool] || '•';
@@ -6169,7 +6204,9 @@
                             name: 'Imported Image',
                             visible: true,
                             opacity: 1,
-                            locked: false
+                            locked: false,
+                            expanded: false,
+                            strokes: []
                         }];
                         
                         const layerCtx = layers[0].canvas.getContext('2d');
@@ -6601,10 +6638,7 @@
                         height: canvas.height
                     },
                     layers: layers.map(layer => ({
-                        imageData: layer.canvas.toDataURL('image/png'),
-                        name: layer.name,
-                        visible: layer.visible,
-                        opacity: layer.opacity
+                        ...serializeLayer(layer)
                     })),
                     currentLayer: currentLayer,
                     colors: {
@@ -6631,7 +6665,10 @@
                             imageData: layer.imageData,
                             name: layer.name,
                             visible: layer.visible,
-                            opacity: layer.opacity
+                            opacity: layer.opacity,
+                            locked: layer.locked || false,
+                            expanded: layer.expanded || false,
+                            strokes: cloneStrokes(layer.strokes)
                         })),
                         currentLayer: state.currentLayer
                     }))
@@ -6748,13 +6785,7 @@
                     projectData.layers.forEach((layerData, i) => {
                         const img = new Image();
                         img.onload = function() {
-                            const newLayer = {
-                                canvas: createLayerCanvas(),
-                                name: layerData.name,
-                                visible: layerData.visible !== undefined ? layerData.visible : true,
-                                opacity: layerData.opacity !== undefined ? layerData.opacity : 1,
-                                locked: layerData.locked || false
-                            };
+                            const newLayer = hydrateLayerFromData(layerData);
                             
                             const layerCtx = newLayer.canvas.getContext('2d');
                             layerCtx.drawImage(img, 0, 0);
@@ -6873,10 +6904,7 @@
                         height: canvas.height
                     },
                     layers: layers.map(layer => ({
-                        imageData: layer.canvas.toDataURL('image/png'),
-                        name: layer.name,
-                        visible: layer.visible,
-                        opacity: layer.opacity
+                        ...serializeLayer(layer)
                     })),
                     currentLayer: currentLayer,
                     colors: {
@@ -6903,7 +6931,10 @@
                             imageData: layer.imageData,
                             name: layer.name,
                             visible: layer.visible,
-                            opacity: layer.opacity
+                            opacity: layer.opacity,
+                            locked: layer.locked || false,
+                            expanded: layer.expanded || false,
+                            strokes: cloneStrokes(layer.strokes)
                         })),
                         currentLayer: state.currentLayer
                     }))
@@ -6981,13 +7012,7 @@
                         projectData.layers.forEach((layerData, i) => {
                             const img = new Image();
                             img.onload = function() {
-                                const newLayer = {
-                                    canvas: createLayerCanvas(),
-                                    name: layerData.name,
-                                    visible: layerData.visible !== undefined ? layerData.visible : true,
-                                    opacity: layerData.opacity !== undefined ? layerData.opacity : 1,
-                                    locked: layerData.locked || false
-                                };
+                                const newLayer = hydrateLayerFromData(layerData);
                                 
                                 const layerCtx = newLayer.canvas.getContext('2d');
                                 layerCtx.drawImage(img, 0, 0);
@@ -7902,16 +7927,18 @@
             if (!floatingSelection) return false;
             const layer = layers[currentLayer];
             const layerCtx = layer.canvas.getContext('2d');
-            const b = floatingSelection.bounds;
+            const floating = floatingSelection;
+            const b = floating.bounds;
+            const vectorStrokes = Array.isArray(floating.vectorStrokes) ? floating.vectorStrokes : null;
 
             layerCtx.save();
-            const cx = b.x + b.width / 2 + floatingSelection.tx;
-            const cy = b.y + b.height / 2 + floatingSelection.ty;
+            const cx = b.x + b.width / 2 + floating.tx;
+            const cy = b.y + b.height / 2 + floating.ty;
             layerCtx.translate(cx, cy);
-            layerCtx.rotate(floatingSelection.rotation);
-            layerCtx.scale(floatingSelection.scaleX, floatingSelection.scaleY);
+            layerCtx.rotate(floating.rotation);
+            layerCtx.scale(floating.scaleX, floating.scaleY);
             layerCtx.drawImage(
-                floatingSelection.canvas,
+                floating.canvas,
                 -cx,
                 -cy
             );
@@ -7921,7 +7948,13 @@
             clearSelectionState();
             // Remove committed vector strokes from the layer
             if (layer && layer.strokes) layer.strokes = layer.strokes.filter(s => !s.selected);
+            if (vectorStrokes && layer) {
+                const transformed = vectorStrokes.map(s => transformStrokeWithFloating(s, floating));
+                if (!layer.strokes) layer.strokes = [];
+                layer.strokes.push(...transformed.map(s => ({ ...s, selected: false })));
+            }
             renderLayers();
+            updateLayerList();
             return true;
         }
 
@@ -7937,7 +7970,10 @@
                         s.bx1 += totalDx; s.by1 += totalDy;
                         s.bx2 += totalDx; s.by2 += totalDy;
                         (s.points || []).forEach(p => { p.x += totalDx; p.y += totalDy; });
+                        if (typeof s.x === 'number') s.x += totalDx;
+                        if (typeof s.y === 'number') s.y += totalDy;
                     });
+                    updateLayerList();
                     addToHistory('Layer Moved');
                 }
                 return;
@@ -8218,6 +8254,80 @@
             });
         }
 
+        function applyFloatingTransformToPoint(x, y, floating, cx, cy) {
+            const tx = x + floating.tx;
+            const ty = y + floating.ty;
+            const dx = tx - cx;
+            const dy = ty - cy;
+            const sx = dx * floating.scaleX;
+            const sy = dy * floating.scaleY;
+            const cosR = Math.cos(floating.rotation);
+            const sinR = Math.sin(floating.rotation);
+            return {
+                x: cx + (sx * cosR - sy * sinR),
+                y: cy + (sx * sinR + sy * cosR)
+            };
+        }
+
+        function transformStrokeWithFloating(stroke, floating) {
+            const bounds = floating.bounds;
+            const cx = bounds.x + bounds.width / 2 + floating.tx;
+            const cy = bounds.y + bounds.height / 2 + floating.ty;
+            const next = JSON.parse(JSON.stringify(stroke));
+            const points = Array.isArray(next.points) ? next.points : [];
+            const transformedPoints = points.map(p => applyFloatingTransformToPoint(p.x, p.y, floating, cx, cy));
+            next.points = transformedPoints;
+
+            if (next.tool === 'text' && transformedPoints.length > 0) {
+                next.x = transformedPoints[0].x;
+                next.y = transformedPoints[0].y;
+                const baseX = typeof stroke.x === 'number' ? stroke.x : stroke.points[0]?.x;
+                const baseY = typeof stroke.y === 'number' ? stroke.y : stroke.points[0]?.y;
+                const textW = typeof stroke.textWidth === 'number' ? stroke.textWidth : Math.max(1, stroke.bx2 - stroke.bx1);
+                const textH = typeof stroke.size === 'number' ? stroke.size : Math.max(1, stroke.by2 - stroke.by1);
+                if (typeof baseX === 'number' && typeof baseY === 'number') {
+                    const textCorners = [
+                        applyFloatingTransformToPoint(baseX, baseY - textH, floating, cx, cy),
+                        applyFloatingTransformToPoint(baseX + textW, baseY - textH, floating, cx, cy),
+                        applyFloatingTransformToPoint(baseX, baseY, floating, cx, cy),
+                        applyFloatingTransformToPoint(baseX + textW, baseY, floating, cx, cy)
+                    ];
+                    next.bx1 = Math.min(...textCorners.map(p => p.x));
+                    next.by1 = Math.min(...textCorners.map(p => p.y));
+                    next.bx2 = Math.max(...textCorners.map(p => p.x));
+                    next.by2 = Math.max(...textCorners.map(p => p.y));
+                    return next;
+                }
+            }
+
+            if (transformedPoints.length > 0) {
+                let bx1 = Infinity, by1 = Infinity, bx2 = -Infinity, by2 = -Infinity;
+                transformedPoints.forEach(p => {
+                    if (p.x < bx1) bx1 = p.x;
+                    if (p.y < by1) by1 = p.y;
+                    if (p.x > bx2) bx2 = p.x;
+                    if (p.y > by2) by2 = p.y;
+                });
+                const pad = Math.max(1, (next.size || 1) / 2);
+                next.bx1 = bx1 - pad;
+                next.by1 = by1 - pad;
+                next.bx2 = bx2 + pad;
+                next.by2 = by2 + pad;
+            } else {
+                const corners = [
+                    applyFloatingTransformToPoint(next.bx1, next.by1, floating, cx, cy),
+                    applyFloatingTransformToPoint(next.bx2, next.by1, floating, cx, cy),
+                    applyFloatingTransformToPoint(next.bx1, next.by2, floating, cx, cy),
+                    applyFloatingTransformToPoint(next.bx2, next.by2, floating, cx, cy)
+                ];
+                next.bx1 = Math.min(...corners.map(c => c.x));
+                next.by1 = Math.min(...corners.map(c => c.y));
+                next.bx2 = Math.max(...corners.map(c => c.x));
+                next.by2 = Math.max(...corners.map(c => c.y));
+            }
+            return next;
+        }
+
         function extractVectorFloatingSelection() {
             if (isLayerLocked()) return false;
             const layer = layers[currentLayer];
@@ -8261,7 +8371,8 @@
                 tx: 0, ty: 0,
                 scaleX: 1, scaleY: 1,
                 rotation: 0,
-                bounds: {x: bx1, y: by1, width: w, height: h}
+                bounds: {x: bx1, y: by1, width: w, height: h},
+                vectorStrokes: sel.map(s => JSON.parse(JSON.stringify(s)))
             };
             return true;
         }
@@ -8431,7 +8542,9 @@
                     name: `${currentLayerData.name} Copy`,
                     visible: true,
                     opacity: currentLayerData.opacity,
-                    locked: false
+                    locked: false,
+                    expanded: currentLayerData.expanded || false,
+                    strokes: cloneStrokes(currentLayerData.strokes)
                 };
                 
                 // Copy the content
@@ -8497,7 +8610,9 @@
                     name: 'Background',
                     visible: true,
                     opacity: 1,
-                    locked: false
+                    locked: false,
+                    expanded: false,
+                    strokes: []
                 }];
 
                 currentLayer = 0;

@@ -5,6 +5,16 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-05-21
+
+### Added
+- **Live layer-element refresh** — layer element lists now refresh immediately when new brush/spray/shape/fill/text elements are created, without requiring extra clicks.
+
+### Changed
+- **History panel order** — most recent history entries are now shown at the top of the history list.
+- **Element transform metadata sync** — moving selected elements now keeps registered geometry/coordinates synchronized with transformed positions.
+- **Text element bounds after transform** — transformed text elements now recompute bounding boxes from transformed text corners for more accurate selection hit areas.
+
 ## [1.9.0] - 2026-05-21
 
 ### Added
@@ -363,6 +373,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.9.1** - Layer element list auto-refresh on create; history newest-first; selected-element move keeps registered coordinates synced; improved transformed text bounds
+- **v1.9.0** - Cursor ring for shape tools; ruler guides; layer content move; expandable layer element list with per-element select/rename/move
+- **v1.8.1** - Brush cursor ring for paint tools; layer lock/unlock controls and lock-state safeguards
+- **v1.8.0** - Elliptical marquee, polygonal lasso, filled shapes, noise/emboss/edge/vignette filters, grouped/categorized tool panel
+- **v1.7.1** - Fixed selection-mode tool-switch blocking so drawing tools can be selected while preserving active selection
+- **v1.7.0** - Marching ants animation; selection combine modes (Add/Subtract/Intersect); move selection border; magic wand contiguous/tolerance controls
 - **v1.6.0** - Select menu (Select All, Deselect, Reselect, Inverse, Grow, Similar, Expand, Contract, Feather); deselect prompt on tool switch
 - **v1.5.5** - WebM export restored & fixed; magic wand performance (Uint8Array bitmask, no browser hang); wand samples composite canvas; localStorage quota fix (historyStates removed from auto-save)
 - **v1.5.4** - Export with Transparency (PNG); flyout Export/Save As submenu grouped by transparency support
