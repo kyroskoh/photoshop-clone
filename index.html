@@ -1877,6 +1877,24 @@
 
             <div class="tool-separator"></div>
 
+            <!-- Quick Transform Buttons -->
+            <div class="tool-group">
+                <button class="tool-button" onclick="applyRotate90CCW()" title="Rotate 90° CCW">
+                    <div class="icon">↺</div>
+                </button>
+                <button class="tool-button" onclick="applyRotate90CW()" title="Rotate 90° CW">
+                    <div class="icon">↻</div>
+                </button>
+                <button class="tool-button" onclick="applyFlipHorizontal()" title="Flip Horizontal">
+                    <div class="icon">⇋</div>
+                </button>
+                <button class="tool-button" onclick="applyFlipVertical()" title="Flip Vertical">
+                    <div class="icon">⇅</div>
+                </button>
+            </div>
+
+            <div class="tool-separator"></div>
+
             <!-- Control Groups -->
             <div class="control-group">
                 <span class="control-label" title="Brush/Tool Size">Size:</span>
@@ -2213,7 +2231,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.10.0</p>
+                    <p>Version 1.10.1</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2222,7 +2240,7 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
 
-                <p>New in v1.10.0: Added Photoshop-style transform suite with Free Transform (Ctrl+T), 90° rotate actions, flip horizontal/vertical, skew, perspective, and Shift-constrained transform behavior.</p>
+                <p>New in v1.10.1: Selected layer elements now move smoothly on first drag (no second click), selecting an element auto-switches to Move tool, and rotate/flip quick-action icons were added to the top toolbar.</p>
 
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
@@ -4246,6 +4264,7 @@
                 currentLayer = layerIndex;
                 const stroke = layers[layerIndex].strokes.find(s => s.id === strokeId);
                 if (stroke) stroke.selected = true;
+                if (currentTool !== 'move') selectTool('move');
             }
             updateLayerList();
             renderLayers();
@@ -8167,7 +8186,18 @@
             // If a specific element is selected, lift just that stroke
             if (selectedElementInfo && selectedElementInfo.layerIndex === currentLayer) {
                 const ok = extractVectorFloatingSelection();
-                if (ok) { updateLayerList(); return true; }
+                if (ok && floatingSelection) {
+                    moveInteraction = {
+                        type: 'move-selection',
+                        startX: x,
+                        startY: y,
+                        baseTx: floatingSelection.tx,
+                        baseTy: floatingSelection.ty
+                    };
+                    updateLayerList();
+                    renderLayers();
+                    return true;
+                }
             }
             const layer = layers[currentLayer];
             const layerCtx = layer.canvas.getContext('2d');

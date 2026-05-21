@@ -5,6 +5,13 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] - 2026-05-21
+
+### Changed
+- **Selected-element move interaction smoothing** — moving a selected layer element now starts on the first drag after selection, removing the previous two-click behavior.
+- **Auto Move-tool selection for element moves** — selecting a layer element now automatically switches to Move tool for immediate transform/move workflows.
+- **Top toolbar transform quick actions** — rotate/flip icon buttons were added to the horizontal toolbar for one-click rotate 90° CW/CCW and flip horizontal/vertical operations.
+
 ## [1.10.0] - 2026-05-21
 
 ### Added
@@ -409,6 +416,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.10.1** - Smoothed first-drag selected-element movement, auto-selected Move tool on element pick, and added top-toolbar rotate/flip quick icons
 - **v1.10.0** - Added full Free Transform workflow, 90° rotate/flip/skew/perspective actions, and Shift-constrained transform behavior
 - **v1.9.5** - Added live layer thumbnail snapshots in the layer preview icons
 - **v1.9.4** - Preserved spray rendering and shape geometry correctly after moving selected elements
