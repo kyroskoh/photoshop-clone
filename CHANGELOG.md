@@ -5,6 +5,27 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] - 2026-05-20
+
+### Added
+- **Expanded Export Formats** — File → Save As now offers all 8 formats:
+  - **WebP** — native Canvas API (`toBlob`); falls back with a notification on unsupported browsers.
+  - **BMP** — inline 24-bit BMP encoder; rows bottom-up per spec; white background composited.
+  - **GIF** — inline GIF89a encoder with 3-3-2 color quantization (256 colors) and LZW compression.
+  - **AVIF** — native Canvas API (`toBlob`); requires Chrome/Edge/Firefox; falls back with notification.
+  - **TIFF** — inline uncompressed 24-bit little-endian TIFF encoder (single strip, 72 DPI).
+  - **SVG** — SVG wrapper embedding the canvas as a PNG `<image>` data URL; preserves transparency.
+  - Unified `exportAs(format)` function dispatches all formats.
+  - File menu updated with all 8 export items.
+- **Import** — file picker now explicitly lists PNG, JPEG, WebP, GIF, BMP, SVG, TIFF, AVIF in addition to the wildcard `image/*`.
+
+### Changed
+- **Tool panel tooltips** now include the keyboard shortcut key in brackets for every tool (e.g. "Brush [B]", "Lasso [L]", "Line [\]").
+- Shape tool tooltips no longer show the Shift-key hint (removed clutter).
+
+### Fixed
+- **Text tool inline editor** repositioned to use `position: fixed` on `document.body` with screen-space coordinates, so it is always visible regardless of canvas zoom level or parent transform. Dark themed styling makes it clearly visible over any canvas content.
+
 ## [1.5.2] - 2026-05-20
 
 ### Added
@@ -244,6 +265,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.5.3** - Shortcut keys in tool tooltips; all 8 export formats (PNG/JPEG/WebP/BMP/GIF/AVIF/TIFF/SVG); fixed inline text editor; clean shape tooltips
 - **v1.5.2** - Inline text editor on canvas; zoom tool added; keyboard shortcuts blocked during text editing
 - **v1.5.1** - Full keyboard shortcuts for all 15 tools, bracket size/opacity control, zoom shortcuts, Ctrl+D deselect, Delete clear layer
 - **v1.5.0** - Per-tool size/opacity memory, fill tolerance slider, fixed flood fill (opacity + performance), canvas fit-to-screen on load, fixed panel tooltips

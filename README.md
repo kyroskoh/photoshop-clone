@@ -4,7 +4,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 **🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
 
-![ProPhoto Editor](https://img.shields.io/badge/version-1.5.2-blue.svg)
+![ProPhoto Editor](https://img.shields.io/badge/version-1.5.3-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
@@ -25,9 +25,9 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Fill Tool** - Flood fill with color
 - **Crop Tool** - Draw, reposition, and apply crop areas
 - **Zoom Tool** - Click to zoom in; Alt+click to zoom out; shortcut: Z
-- **Line Tool** - Draw straight lines; Shift snaps to 45° increments
-- **Rectangle Tool** - Draw outlined rectangles; Shift constrains to square
-- **Ellipse Tool** - Draw outlined ellipses; Shift constrains to circle
+- **Line Tool** `[\]` - Draw straight lines; hold **Shift** to snap to 45° increments
+- **Rectangle Tool** `[R]` - Draw outlined rectangles; hold **Shift** to constrain to square
+- **Ellipse Tool** `[O]` - Draw outlined ellipses; hold **Shift** to constrain to circle
 
 ### Image Filters (7 Total)
 - Brightness adjustment
@@ -54,7 +54,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Zoom Controls** - Zoom from 10% to 500%
 - **Grid Overlay** - Toggle grid for precise alignment
 - **Color Palette** - 32 predefined colors + custom color picker
-- **Export Options** - Save as PNG or JPEG
+- **Export Options** - Save as PNG, JPEG, WebP, BMP, GIF, AVIF, TIFF, or SVG
 - **Project Management** - Save and load projects in custom .prophoto format
 - **Auto-Save** - Automatic session state saving to localStorage (resume work later)
 - **Unsaved Changes Indicator** - Visual indicator (*) shows when project has unsaved changes
@@ -180,8 +180,14 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Open Image...** - Load an image from your computer
 - **Save Project...** - Save project as .prophoto file (includes all layers, history, settings)
 - **Load Project...** - Load a previously saved .prophoto project file
-- **Save As PNG...** - Export as PNG format (high quality, lossless)
-- **Save As JPEG...** - Export as JPEG format (90% quality, compressed)
+- **Save As PNG...** - Export as PNG (lossless, supports transparency)
+- **Save As JPEG...** - Export as JPEG (92% quality, white background)
+- **Save As WebP...** - Export as WebP (85% quality, modern format, supports transparency)
+- **Save As BMP...** - Export as BMP (uncompressed 24-bit, maximum compatibility)
+- **Save As GIF...** - Export as GIF (256-color 3-3-2 quantization, inline encoder)
+- **Save As AVIF...** - Export as AVIF (85% quality; requires Chrome/Edge/Firefox)
+- **Save As TIFF...** - Export as TIFF (uncompressed 24-bit, inline encoder)
+- **Save As SVG...** - Export as SVG (PNG image embedded in SVG wrapper)
 
 ### Edit Menu
 - **Undo** - Revert last action
@@ -400,8 +406,9 @@ ProPhoto Editor includes comprehensive project management features:
 
 - Undo/Redo system has limited history (20 steps)
 - Selection tools are basic implementations
+- WebP and AVIF export requires Chrome/Edge/Firefox (not supported in older Safari)
 - No advanced selection manipulation (transform, feather)
-- File format support limited to common image types
+- GIF export uses 3-3-2 color quantization (256 colors); complex images may show banding
 
 ## 🚧 Future Enhancements
 

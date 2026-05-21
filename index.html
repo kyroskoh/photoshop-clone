@@ -891,20 +891,24 @@
             -ms-touch-action: none;
         }
 
-        /* Inline text editor overlay on the canvas */
+        /* Inline text editor — fixed over canvas, never clipped by transforms */
         .canvas-text-input {
-            position: absolute;
-            background: transparent;
-            border: none;
-            border-bottom: 2px dashed rgba(100, 160, 255, 0.8);
+            position: fixed;
+            background: rgba(30, 30, 30, 0.92);
+            color: #ffffff;
+            border: 1px solid rgba(100, 160, 255, 0.7);
+            border-bottom: 2px solid #4a9eff;
             outline: none;
-            padding: 0 2px;
+            padding: 5px 8px;
             margin: 0;
-            z-index: 200;
+            z-index: 99999;
             white-space: nowrap;
-            min-width: 4px;
+            min-width: 120px;
             pointer-events: auto;
-            caret-color: rgba(100, 160, 255, 1);
+            caret-color: #4a9eff;
+            border-radius: 3px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.6);
+            font-family: Arial, sans-serif;
         }
 
         .canvas-wrapper.pan-mode {
@@ -1611,8 +1615,14 @@
                     <div class="dropdown-item dev-mode-only" id="saveJsonMenuItem" style="display: none;" onclick="event.stopPropagation(); saveProjectAsJson(); hideAllDropdowns();">Save Project as JSON...</div>
                     <div class="dropdown-item dev-mode-only" id="loadJsonMenuItem" style="display: none;" onclick="event.stopPropagation(); loadProjectAsJson(); hideAllDropdowns();">Load Project as JSON...</div>
                     <div class="dropdown-divider"></div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); exportImage(); hideAllDropdowns();">Save As PNG...</div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); saveAsJPEG(); hideAllDropdowns();">Save As JPEG...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('png'); hideAllDropdowns();">Save As PNG...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('jpeg'); hideAllDropdowns();">Save As JPEG...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('webp'); hideAllDropdowns();">Save As WebP...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('bmp'); hideAllDropdowns();">Save As BMP...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('gif'); hideAllDropdowns();">Save As GIF...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('avif'); hideAllDropdowns();">Save As AVIF...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('tiff'); hideAllDropdowns();">Save As TIFF...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('svg'); hideAllDropdowns();">Save As SVG...</div>
                 </div>
             </div>
             <div class="menu-separator"></div>
@@ -1747,57 +1757,57 @@
                 </div>
             </div>
             <div class="tool-panel-content" id="toolPanelContent">
-                <button class="tool-panel-button active" id="moveTool" onclick="selectTool('move')" title="Move Tool">
+                <button class="tool-panel-button active" id="moveTool" onclick="selectTool('move')" title="Move [V]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><path d="M12 2L8 6h3v4H5l4 4V10h4l-2 2h-2v4H8l-2 2h4l4-4h-3v-4h6l-4-4v-2h2l2-2H8l4-4z"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="marqueeTool" onclick="selectTool('marquee')" title="Rectangular Marquee">
+                <button class="tool-panel-button" id="marqueeTool" onclick="selectTool('marquee')" title="Rectangular Marquee [M]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="lassoTool" onclick="selectTool('lasso')" title="Lasso Tool">
+                <button class="tool-panel-button" id="lassoTool" onclick="selectTool('lasso')" title="Lasso [L]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><path d="M8 2L6 8l4 2L8 12l-4 4 6 2 4-6 2-2L12 8z" fill="currentColor"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="magicWandTool" onclick="selectTool('magicWand')" title="Magic Wand">
+                <button class="tool-panel-button" id="magicWandTool" onclick="selectTool('magicWand')" title="Magic Wand [W]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><path d="M12 2L8 6h3l2 2-2 2-2 2h3l2 2-2 2-3 3-3-3-3 3-3-3 3-3-2-2 2-2-2-2 2-2 3 3z" fill="currentColor"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="brushTool" onclick="selectTool('brush')" title="Brush Tool">
+                <button class="tool-panel-button" id="brushTool" onclick="selectTool('brush')" title="Brush [B]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3" fill="currentColor"/><rect x="14" y="14" width="6" height="2" fill="currentColor"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="pencilTool" onclick="selectTool('pencil')" title="Pencil Tool">
+                <button class="tool-panel-button" id="pencilTool" onclick="selectTool('pencil')" title="Pencil [P]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><rect x="3" y="15" width="8" height="4" fill="currentColor"/><rect x="11" y="13" width="10" height="2" fill="currentColor"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="eraserTool" onclick="selectTool('eraser')" title="Eraser Tool">
+                <button class="tool-panel-button" id="eraserTool" onclick="selectTool('eraser')" title="Eraser [E]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><path d="M16.24 3.56L15.77 3.09L14.24 4.62L14.71 5.09L16.24 3.56M21.9 2.34L21.66 1.1L20.5 1.1L21.84 2.44L21.9 2.34" fill="currentColor"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="sprayTool" onclick="selectTool('spray')" title="Spray Tool">
+                <button class="tool-panel-button" id="sprayTool" onclick="selectTool('spray')" title="Spray / Airbrush [A]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="6" fill="currentColor" opacity="0.3"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="textTool" onclick="selectTool('text')" title="Text Tool">
+                <button class="tool-panel-button" id="textTool" onclick="selectTool('text')" title="Text [T] — Click canvas to type">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor">A</text></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="fillTool" onclick="selectTool('fill')" title="Fill Tool">
+                <button class="tool-panel-button" id="fillTool" onclick="selectTool('fill')" title="Fill / Paint Bucket [G]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><path d="M12 2L4 14h16L12 2zM8 18l-4 6h16l-4-6H8z" fill="currentColor"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="cropTool" onclick="selectTool('crop')" title="Crop Tool">
+                <button class="tool-panel-button" id="cropTool" onclick="selectTool('crop')" title="Crop [C]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="4" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="4" y="14" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="14" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/></svg>
                     </div>
@@ -1807,17 +1817,17 @@
                         <svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="2" fill="none"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="10" y1="7" x2="10" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="lineTool" onclick="selectTool('line')" title="Line Tool [\ ] (Shift=45°)">
+                <button class="tool-panel-button" id="lineTool" onclick="selectTool('line')" title="Line [\]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="rectangleTool" onclick="selectTool('rectangle')" title="Rectangle Tool (Shift=Square)">
+                <button class="tool-panel-button" id="rectangleTool" onclick="selectTool('rectangle')" title="Rectangle [R]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" stroke="currentColor" stroke-width="2" fill="none" rx="1"/></svg>
                     </div>
                 </button>
-                <button class="tool-panel-button" id="ellipseTool" onclick="selectTool('ellipse')" title="Ellipse Tool (Shift=Circle)">
+                <button class="tool-panel-button" id="ellipseTool" onclick="selectTool('ellipse')" title="Ellipse [O]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="6" stroke="currentColor" stroke-width="2" fill="none"/></svg>
                     </div>
@@ -1936,7 +1946,7 @@
     </div>
 
     <!-- Hidden File Inputs -->
-    <input type="file" class="file-input" id="fileInput" accept="image/*" onchange="loadImage(event)">
+    <input type="file" class="file-input" id="fileInput" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/svg+xml,image/tiff,image/avif,image/*" onchange="loadImage(event)">
     <input type="file" class="file-input" id="projectFileInput" accept=".prophoto" onchange="handleProjectLoad(event)" style="display: none;">
 
     <!-- Fixed tooltip for left-panel tool buttons (avoids overflow clipping) -->
@@ -1950,7 +1960,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.5.2</p>
+                    <p>Version 1.5.3</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -1959,7 +1969,7 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
 
-                <p>New in v1.5.2: Inline text editor (no more browser prompt — type directly on canvas, Enter to commit, Escape to cancel). Keyboard shortcuts are blocked while typing. Zoom tool added to the tool panel (Z, click=zoom in, Alt+click=zoom out).</p>
+                <p>New in v1.5.3: Shortcut keys shown in all tool tooltips. Export formats expanded to PNG, JPEG, WebP, and BMP. Fixed inline text editor positioning. Shape tool tooltips cleaned up.</p>
 
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
@@ -4281,53 +4291,43 @@
             renderLayers();
         }
 
-        // Text tool — inline editor on the canvas
+        // Text tool — inline editor rendered fixed over the canvas
         function showTextDialog(x, y) {
             commitTextEdit(); // close any existing editor first
 
             const fontSize = Math.max(8, brushSize * 2);
+
+            // Compute screen position of the canvas click point
+            const rect = canvas.getBoundingClientRect();
+            const screenX = rect.left + x * zoom;
+            const screenY = rect.top  + y * zoom;
+            const visualSize = Math.max(13, fontSize * zoom);
+
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'canvas-text-input';
-            input.style.left   = x + 'px';
-            input.style.top    = (y - fontSize) + 'px';
-            input.style.fontSize   = fontSize + 'px';
-            input.style.fontFamily = 'Arial, sans-serif';
-            input.style.color      = primaryColor;
-            input.style.width      = '4px';
+            input.style.left     = Math.min(screenX, window.innerWidth  - 140) + 'px';
+            input.style.top      = Math.max(4, screenY - visualSize - 6)        + 'px';
+            input.style.fontSize = visualSize + 'px';
+            input.placeholder    = 'Type here…';
 
-            canvasWrapper.appendChild(input);
+            document.body.appendChild(input);
             textEditState = { x, y, input, fontSize };
 
-            // Auto-resize width as user types
-            input.addEventListener('input', () => {
-                input.style.width = '4px';
-                input.style.width = input.scrollWidth + 'px';
-            });
-
             input.addEventListener('keydown', (e) => {
-                // stopPropagation so no tool shortcuts fire while typing
-                e.stopPropagation();
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    commitTextEdit();
-                } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    cancelTextEdit();
-                }
+                e.stopPropagation(); // block tool shortcuts while typing
+                if (e.key === 'Enter')  { e.preventDefault(); commitTextEdit(); }
+                if (e.key === 'Escape') { e.preventDefault(); cancelTextEdit(); }
             });
 
-            // Commit on blur (user clicks canvas or elsewhere)
             input.addEventListener('blur', () => {
-                // Use setTimeout to let click events on canvas settle first
                 setTimeout(() => {
-                    if (textEditState && textEditState.input === input) {
-                        commitTextEdit();
-                    }
-                }, 100);
+                    if (textEditState && textEditState.input === input) commitTextEdit();
+                }, 150);
             });
 
-            input.focus();
+            // Use rAF so the mousedown event fully settles before we steal focus
+            requestAnimationFrame(() => { input.focus(); input.select(); });
         }
 
         function commitTextEdit() {
@@ -5233,42 +5233,310 @@
             }
         }
 
-        function exportImage() {
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = canvas.width;
-            exportCanvas.height = canvas.height;
-            const exportCtx = exportCanvas.getContext('2d');
-            
-            // Render all visible layers
+        // Flatten all visible layers into a single canvas
+        function createFlattenedCanvas(whiteBackground) {
+            const out = document.createElement('canvas');
+            out.width = canvas.width;
+            out.height = canvas.height;
+            const outCtx = out.getContext('2d');
+            if (whiteBackground) {
+                outCtx.fillStyle = '#ffffff';
+                outCtx.fillRect(0, 0, out.width, out.height);
+            }
             layers.forEach(layer => {
                 if (layer.visible) {
-                    exportCtx.globalAlpha = layer.opacity;
-                    exportCtx.drawImage(layer.canvas, 0, 0);
+                    outCtx.save();
+                    outCtx.globalAlpha = layer.opacity;
+                    outCtx.drawImage(layer.canvas, 0, 0);
+                    outCtx.restore();
                 }
             });
-            
-            exportCanvas.toBlob(blob => {
+            return out;
+        }
+
+        // Unified export — format: 'png' | 'jpeg' | 'webp' | 'bmp' | 'gif' | 'avif' | 'tiff' | 'svg'
+        function exportAs(format) {
+            const name = (projectName && projectName !== 'Untitled' ? projectName : 'image');
+            if (format === 'bmp')  { exportAsBMP(name);  return; }
+            if (format === 'gif')  { exportAsGIF(name);  return; }
+            if (format === 'tiff') { exportAsTIFF(name); return; }
+            if (format === 'svg')  { exportAsSVG(name);  return; }
+            const needsWhiteBg = (format === 'jpeg');
+            const flat = createFlattenedCanvas(needsWhiteBg);
+            const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp', avif: 'image/avif' };
+            const extMap  = { png: 'png', jpeg: 'jpg', webp: 'webp', avif: 'avif' };
+            const quality = (format === 'jpeg') ? 0.92 : (format === 'webp' || format === 'avif') ? 0.85 : undefined;
+            flat.toBlob(blob => {
+                if (!blob) {
+                    showNotification(`${format.toUpperCase()} export is not supported in this browser. Try PNG instead.`, 3500);
+                    return;
+                }
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'exported_image.png';
+                a.download = `${name}.${extMap[format]}`;
                 a.click();
                 URL.revokeObjectURL(url);
-            });
+            }, mimeMap[format], quality);
         }
 
-        function saveAsPNG() {
-            const link = document.createElement('a');
-            link.download = 'image.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+        // Kept for Ctrl+S compatibility
+        function exportImage() { exportAs('png'); }
+        function saveAsPNG()   { exportAs('png'); }
+        function saveAsJPEG()  { exportAs('jpeg'); }
+
+        // 24-bit BMP encoder (no external library needed)
+        function exportAsBMP(name) {
+            const flat = createFlattenedCanvas(true); // white background
+            const w = flat.width, h = flat.height;
+            const imgData = flat.getContext('2d').getImageData(0, 0, w, h).data;
+
+            // Row stride: 3 bytes/pixel (BGR), padded to 4-byte boundary
+            const rowStride = Math.floor((3 * w + 3) / 4) * 4;
+            const pixelDataSize = rowStride * h;
+            const fileSize = 54 + pixelDataSize;
+            const buf = new ArrayBuffer(fileSize);
+            const dv = new DataView(buf);
+            const u8 = new Uint8Array(buf);
+
+            // File header (14 bytes)
+            u8[0] = 0x42; u8[1] = 0x4D;             // 'BM'
+            dv.setUint32(2,  fileSize,   true);
+            dv.setUint32(6,  0,          true);       // reserved
+            dv.setUint32(10, 54,         true);       // pixel data offset
+
+            // BITMAPINFOHEADER (40 bytes)
+            dv.setUint32(14, 40,         true);       // header size
+            dv.setInt32 (18, w,          true);
+            dv.setInt32 (22, h,          true);       // positive = bottom-up
+            dv.setUint16(26, 1,          true);       // color planes
+            dv.setUint16(28, 24,         true);       // bits per pixel
+            dv.setUint32(30, 0,          true);       // no compression
+            dv.setUint32(34, pixelDataSize, true);
+            dv.setUint32(38, 2835,       true);       // ~72 DPI
+            dv.setUint32(42, 2835,       true);
+
+            // Pixel data — BGR, rows bottom-up
+            for (let row = 0; row < h; row++) {
+                const srcRow = h - 1 - row; // flip vertical
+                for (let col = 0; col < w; col++) {
+                    const src = (srcRow * w + col) * 4;
+                    const dst = 54 + row * rowStride + col * 3;
+                    u8[dst]     = imgData[src + 2]; // B
+                    u8[dst + 1] = imgData[src + 1]; // G
+                    u8[dst + 2] = imgData[src];     // R
+                }
+            }
+
+            const blob = new Blob([buf], { type: 'image/bmp' });
+            const url  = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name}.bmp`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
-        function saveAsJPEG() {
-            const link = document.createElement('a');
-            link.download = 'image.jpg';
-            link.href = canvas.toDataURL('image/jpeg', 0.9);
-            link.click();
+        // GIF export — inline GIF89a encoder with 3-3-2 color quantization (256 colors)
+        function exportAsGIF(name) {
+            const flat = createFlattenedCanvas(true);
+            const w = flat.width, h = flat.height;
+            const imgData = flat.getContext('2d').getImageData(0, 0, w, h).data;
+
+            // Build 3-3-2 palette: 3 bits R, 3 bits G, 2 bits B → 256 entries
+            const palette = new Uint8Array(768);
+            for (let i = 0; i < 256; i++) {
+                palette[i*3]   = ((i >> 5) & 7) * 255 / 7 | 0;
+                palette[i*3+1] = ((i >> 2) & 7) * 255 / 7 | 0;
+                palette[i*3+2] = (i & 3)        * 255 / 3 | 0;
+            }
+
+            // Quantize pixels to nearest palette index
+            const indices = new Uint8Array(w * h);
+            for (let i = 0; i < w * h; i++) {
+                const r = imgData[i*4], g = imgData[i*4+1], b = imgData[i*4+2];
+                indices[i] = ((r >> 5) << 5) | ((g >> 5) << 2) | (b >> 6);
+            }
+
+            // LZW compress
+            const minCodeSize = 8;
+            const lzwBytes = gifLZWCompress(indices, minCodeSize);
+
+            // Assemble GIF bytes
+            const out = [];
+            // Header
+            out.push(0x47,0x49,0x46,0x38,0x39,0x61); // GIF89a
+            // Logical Screen Descriptor
+            out.push(w & 0xFF, w >> 8, h & 0xFF, h >> 8);
+            out.push(0xF7, 0x00, 0x00); // GCT present, 256 colors, bg=0, aspect=0
+            // Global Color Table
+            for (let i = 0; i < 768; i++) out.push(palette[i]);
+            // Image Descriptor
+            out.push(0x2C, 0,0, 0,0, w & 0xFF, w >> 8, h & 0xFF, h >> 8, 0x00);
+            // Image Data
+            out.push(minCodeSize);
+            for (let i = 0; i < lzwBytes.length; i += 255) {
+                const chunk = lzwBytes.slice(i, Math.min(i + 255, lzwBytes.length));
+                out.push(chunk.length);
+                for (let j = 0; j < chunk.length; j++) out.push(chunk[j]);
+            }
+            out.push(0x00); // block terminator
+            out.push(0x3B); // GIF trailer
+
+            const blob = new Blob([new Uint8Array(out)], { type: 'image/gif' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name}.gif`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // LZW compression for GIF
+        function gifLZWCompress(indices, minCodeSize) {
+            const clearCode = 1 << minCodeSize;
+            const eoi = clearCode + 1;
+            const output = [];
+            let bitBuf = 0, bitCount = 0;
+            let codeSize = minCodeSize + 1;
+            let maxCode = 1 << codeSize;
+            let table = new Map();
+            let nextCode = eoi + 1;
+
+            function resetTable() {
+                table.clear();
+                nextCode = eoi + 1;
+                codeSize = minCodeSize + 1;
+                maxCode = 1 << codeSize;
+            }
+            function emit(code) {
+                bitBuf |= code << bitCount;
+                bitCount += codeSize;
+                while (bitCount >= 8) {
+                    output.push(bitBuf & 0xFF);
+                    bitBuf >>= 8;
+                    bitCount -= 8;
+                }
+            }
+
+            emit(clearCode);
+            resetTable();
+            let prefix = indices[0];
+
+            for (let i = 1; i < indices.length; i++) {
+                const c = indices[i];
+                const key = (prefix << 8) | c;
+                if (table.has(key)) {
+                    prefix = table.get(key);
+                } else {
+                    emit(prefix);
+                    if (nextCode < 4096) {
+                        table.set(key, nextCode++);
+                        if (nextCode > maxCode && codeSize < 12) {
+                            codeSize++;
+                            maxCode <<= 1;
+                        }
+                    } else {
+                        emit(clearCode);
+                        resetTable();
+                    }
+                    prefix = c;
+                }
+            }
+            emit(prefix);
+            emit(eoi);
+            if (bitCount > 0) output.push(bitBuf & 0xFF);
+            return output;
+        }
+
+        // TIFF export — uncompressed 24-bit little-endian TIFF
+        function exportAsTIFF(name) {
+            const flat = createFlattenedCanvas(true);
+            const w = flat.width, h = flat.height;
+            const imgData = flat.getContext('2d').getImageData(0, 0, w, h).data;
+            const imgBytes = w * h * 3;
+
+            // Layout: header(8) + ifdCount(2) + 12 IFD entries(144) + ifdNext(4) = 158
+            // Extra: bps(6) + xres(8) + yres(8) = 22  → total header = 180
+            const imgDataOffset = 180;
+            const buf = new ArrayBuffer(imgDataOffset + imgBytes);
+            const dv = new DataView(buf);
+            const u8 = new Uint8Array(buf);
+
+            // TIFF header (little-endian)
+            u8[0]=0x49; u8[1]=0x49; // 'II'
+            dv.setUint16(2, 42, true);
+            dv.setUint32(4, 8,  true); // IFD at offset 8
+
+            const ifdStart = 8;
+            dv.setUint16(ifdStart, 12, true); // 12 IFD entries
+            let p = ifdStart + 2;
+
+            const SHORT=3, LONG=4, RATIONAL=5;
+            function ifd(tag, type, count, value) {
+                dv.setUint16(p,   tag,   true);
+                dv.setUint16(p+2, type,  true);
+                dv.setUint32(p+4, count, true);
+                dv.setUint32(p+8, value, true);
+                p += 12;
+            }
+
+            const bpsOff  = 158; // BitsPerSample [8,8,8]: 3×SHORT = 6 bytes
+            const xresOff = 164; // XResolution rational: 8 bytes
+            const yresOff = 172; // YResolution rational: 8 bytes
+
+            ifd(256, LONG,     1, w);            // ImageWidth
+            ifd(257, LONG,     1, h);            // ImageLength
+            ifd(258, SHORT,    3, bpsOff);       // BitsPerSample
+            ifd(259, SHORT,    1, 1);            // Compression = none
+            ifd(262, SHORT,    1, 2);            // PhotometricInterpretation = RGB
+            ifd(273, LONG,     1, imgDataOffset); // StripOffsets
+            ifd(277, SHORT,    1, 3);            // SamplesPerPixel
+            ifd(278, LONG,     1, h);            // RowsPerStrip
+            ifd(279, LONG,     1, imgBytes);     // StripByteCounts
+            ifd(282, RATIONAL, 1, xresOff);      // XResolution
+            ifd(283, RATIONAL, 1, yresOff);      // YResolution
+            ifd(296, SHORT,    1, 2);            // ResolutionUnit = inch
+
+            dv.setUint32(p, 0, true); // no next IFD
+
+            // Extra data
+            dv.setUint16(bpsOff,   8, true);
+            dv.setUint16(bpsOff+2, 8, true);
+            dv.setUint16(bpsOff+4, 8, true);
+            dv.setUint32(xresOff,   72, true); dv.setUint32(xresOff+4, 1, true);
+            dv.setUint32(yresOff,   72, true); dv.setUint32(yresOff+4, 1, true);
+
+            // Image data (RGB, top-to-bottom)
+            let dst = imgDataOffset;
+            for (let i = 0; i < w * h; i++) {
+                u8[dst++] = imgData[i*4];
+                u8[dst++] = imgData[i*4+1];
+                u8[dst++] = imgData[i*4+2];
+            }
+
+            const blob = new Blob([buf], { type: 'image/tiff' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name}.tiff`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // SVG export — embeds the canvas as a PNG data URL inside an SVG wrapper
+        function exportAsSVG(name) {
+            const flat = createFlattenedCanvas(false);
+            const dataURL = flat.toDataURL('image/png');
+            const w = flat.width, h = flat.height;
+            const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">\n  <image width="${w}" height="${h}" xlink:href="${dataURL}"/>\n</svg>`;
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name}.svg`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         // Save project as .prophoto file
