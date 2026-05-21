@@ -3039,11 +3039,9 @@
                             // All layers loaded, restore other state
                             currentLayer = state.currentLayer || 0;
                             
-                            // Restore project name
-                            if (state.projectName) {
-                                projectName = state.projectName;
-                                updateProjectTitle();
-                            }
+                            // Restored sessions always get the "Restored Document" title
+                            projectName = 'Restored Document';
+                            updateProjectTitle();
                             
                             // Restore colors
                             if (state.colors) {
@@ -3086,12 +3084,19 @@
                             }
                             
                             // Restore history labels (names only; canvas snapshots are not
-                            // persisted to localStorage — they reset on each page load)
-                            history = (state.history && state.history.length > 0)
-                                ? state.history
+                            // persisted to localStorage — they reset on each page load).
+                            // Append 'Document Restored' so the current position is at the bottom.
+                            const restoredLabels = (state.history && state.history.length > 0)
+                                ? [...state.history, 'Document Restored']
                                 : ['Document Restored'];
-                            historyStates = [saveCanvasState()]; // single baseline snapshot
-                            historyIndex = 0;
+                            history = restoredLabels;
+                            // Fill historyStates with the same snapshot for every label so that
+                            // clicking any older entry in the panel doesn't crash (they all show
+                            // the restored canvas).  Undo is intentionally a no-op on these
+                            // synthetic entries since the pixel data can't travel back in time.
+                            const restoredSnapshot = saveCanvasState();
+                            historyStates = new Array(history.length).fill(restoredSnapshot);
+                            historyIndex = history.length - 1; // active = most-recent (bottom)
                             
                             // Update UI
                             updateLayerList();
