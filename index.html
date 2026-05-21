@@ -4203,57 +4203,57 @@
             renderLayers();
             addToHistory('Applied crop');
         }
-        // Magic Wand selection
+        // Magic Wand selection — optimized with Uint8Array bitmask + flat integer stack
         function selectMagicWand(x, y) {
             const layer = layers[currentLayer];
-            const layerCtx = layer.canvas.getContext('2d');
-            const imageData = layerCtx.getImageData(x, y, 1, 1);
-            const targetColor = imageData.data;
-            
-            const data = layerCtx.getImageData(0, 0, layer.canvas.width, layer.canvas.height);
-            const visited = new Set();
-            const stack = [[x, y]];
-            
-            while (stack.length > 0) {
-                const [cx, cy] = stack.pop();
-                const key = `${cx},${cy}`;
-                
-                if (visited.has(key) || cx < 0 || cy < 0 || cx >= layer.canvas.width || cy >= layer.canvas.height) {
-                    continue;
-                }
-                
-                const pixel = data.data[(cy * layer.canvas.width + cx) * 4];
-                const pr = data.data[(cy * layer.canvas.width + cx) * 4 + 1];
-                const pg = data.data[(cy * layer.canvas.width + cx) * 4 + 2];
-                const pb = data.data[(cy * layer.canvas.width + cx) * 4 + 3];
-                
-                const r = Math.abs(pixel - targetColor[0]);
-                const g = Math.abs(pr - targetColor[1]);
-                const b = Math.abs(pg - targetColor[2]);
-                const a = Math.abs(pb - targetColor[3]);
-                
-                if (r + g + b + a > magicWandTolerance) continue;
-                
-                visited.add(key);
-                stack.push([cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]);
+            const lctx = layer.canvas.getContext('2d');
+            const w = layer.canvas.width, h = layer.canvas.height;
+            x = Math.round(x); y = Math.round(y);
+            if (x < 0 || y < 0 || x >= w || y >= h) return;
+
+            const px = lctx.getImageData(0, 0, w, h).data;
+            const si = (y * w + x) * 4;
+            const tr = px[si], tg = px[si+1], tb = px[si+2], ta = px[si+3];
+            const tol = magicWandTolerance;
+
+            // visited prevents re-queuing; selected tracks matched pixels
+            const visited  = new Uint8Array(w * h);
+            const selected = new Uint8Array(w * h);
+            const stack    = new Int32Array(w * h); // pre-allocated; each pixel queued at most once
+            let top = 0, count = 0;
+
+            visited[y * w + x] = 1;
+            stack[top++] = y * w + x;
+
+            while (top > 0) {
+                const idx = stack[--top];
+                const cx = idx % w, cy = (idx / w) | 0;
+                const di = idx * 4;
+
+                if (Math.abs(px[di]   - tr) + Math.abs(px[di+1] - tg) +
+                    Math.abs(px[di+2] - tb) + Math.abs(px[di+3] - ta) > tol) continue;
+
+                selected[idx] = 1;
+                count++;
+
+                if (cx > 0     && !visited[idx - 1]) { visited[idx - 1] = 1; stack[top++] = idx - 1; }
+                if (cx < w - 1 && !visited[idx + 1]) { visited[idx + 1] = 1; stack[top++] = idx + 1; }
+                if (cy > 0     && !visited[idx - w]) { visited[idx - w] = 1; stack[top++] = idx - w; }
+                if (cy < h - 1 && !visited[idx + w]) { visited[idx + w] = 1; stack[top++] = idx + w; }
             }
-            
-            // Create selection mask
-            selectedArea = Array.from(visited).map(key => {
-                const [x, y] = key.split(',').map(Number);
-                return {x, y};
-            });
-            if (visited.size === 0) {
+
+            if (count === 0) {
                 clearSelectionState();
                 updateSelectionDisplay();
                 return;
             }
+
             selectionMode = 'magicWand';
-            selectedPixelSet = visited;
+            selectedArea = []; // truthy sentinel; actual data is in selectedPixelSet
+            selectedPixelSet = { mask: selected, w, h };
             rebuildSelectionMask();
             detectStrokesInSelection();
             updateSelectionDisplay();
-
             addToHistory('Magic Wand Selection');
         }
 
@@ -6373,7 +6373,9 @@
             }
 
             if (selectionMode === 'magicWand' && selectedPixelSet) {
-                return selectedPixelSet.has(`${x},${y}`);
+                const { mask, w } = selectedPixelSet;
+                const xi = Math.round(x), yi = Math.round(y);
+                return !!mask[yi * w + xi];
             }
 
             return true;
@@ -6475,21 +6477,19 @@
                 mctx.fill();
                 selectionBounds = getPolygonBounds(selectedArea);
             } else if (selectionMode === 'magicWand' && selectedPixelSet) {
+                const { mask: pxMask, w: pw, h: ph } = selectedPixelSet;
                 const img = mctx.getImageData(0, 0, mask.width, mask.height);
-                let minX = mask.width, minY = mask.height, maxX = -1, maxY = -1;
-                selectedPixelSet.forEach(key => {
-                    const [sx, sy] = key.split(',').map(Number);
-                    if (sx < 0 || sy < 0 || sx >= mask.width || sy >= mask.height) return;
+                let minX = pw, minY = ph, maxX = -1, maxY = -1;
+                for (let i = 0; i < pw * ph; i++) {
+                    if (!pxMask[i]) continue;
+                    const sx = i % pw, sy = (i / pw) | 0;
                     const idx = (sy * mask.width + sx) * 4;
-                    img.data[idx] = 255;
-                    img.data[idx + 1] = 255;
-                    img.data[idx + 2] = 255;
-                    img.data[idx + 3] = 255;
+                    img.data[idx] = img.data[idx+1] = img.data[idx+2] = img.data[idx+3] = 255;
                     if (sx < minX) minX = sx;
                     if (sy < minY) minY = sy;
                     if (sx > maxX) maxX = sx;
                     if (sy > maxY) maxY = sy;
-                });
+                }
                 mctx.putImageData(img, 0, 0);
                 if (maxX >= minX && maxY >= minY) {
                     selectionBounds = { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
@@ -6788,7 +6788,11 @@
 
         function strokeInMagicWandSet(stroke) {
             if (!selectedPixelSet) return false;
-            return stroke.points.some(p => selectedPixelSet.has(`${Math.round(p.x)},${Math.round(p.y)}`));
+            const { mask, w, h } = selectedPixelSet;
+            return stroke.points.some(p => {
+                const xi = Math.round(p.x), yi = Math.round(p.y);
+                return xi >= 0 && yi >= 0 && xi < w && yi < h && !!mask[yi * w + xi];
+            });
         }
 
         function extractVectorFloatingSelection() {
