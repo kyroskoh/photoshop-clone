@@ -5,6 +5,17 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-05-21
+
+### Added
+- **Cursor ring extended** — line, rectangle, and ellipse tools now show the cursor ring; the circle diameter matches the stroke width so you can see how thick each stroke will be before drawing
+- **Ruler guides** — 20 px pixel rulers along the top and left edges of the canvas; drag from either ruler onto the canvas to create a horizontal or vertical cyan dashed guide line; hover a guide to get a resize cursor; drag it to reposition; drag it off the canvas to delete; toggle all guides with View → Toggle Guides or `Ctrl+;`
+- **Layer content move** — with the Move tool and no active selection, clicking and dragging now translates all pixels and strokes on the current layer as a block; an amber dashed border shows while moving; all stroke coordinates are updated on commit so future drawing stays aligned; locked layers show a toast instead
+- **Expandable layer element list** — each layer row has a ▶ toggle; clicking it reveals a child list of every stroke in that layer (tool icon + auto-name like "brush #1"); clicking an element in the list selects it and draws a blue bounding-box outline on the canvas; with the Move tool active, dragging then moves just that selected stroke as a floating selection; double-clicking an element row opens an inline rename input; double-clicking a layer name already supported renaming
+
+### Changed
+- Move tool fallback changed from canvas pan to layer-content move; canvas pan still available via middle-mouse button or space+drag
+
 ## [1.8.1] - 2026-05-21
 
 ### Added

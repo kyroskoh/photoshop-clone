@@ -912,7 +912,42 @@
             justify-content: center;
             overflow: auto;
             margin-left: 60px; /* Space for tool panel */
+            padding-top: 20px;
+            padding-left: 20px;
         }
+
+        .ruler-corner {
+            position: absolute; top: 0; left: 0;
+            width: 20px; height: 20px;
+            background: #2a2a2a;
+            border-right: 1px solid #444; border-bottom: 1px solid #444;
+            z-index: 22;
+        }
+        .ruler { position: absolute; background: #2a2a2a; z-index: 20; cursor: default; }
+        .ruler-h { top: 0; left: 20px; height: 20px; }
+        .ruler-v { top: 20px; left: 0; width: 20px; }
+
+        .guide-overlay {
+            position: absolute; top: 0; left: 0;
+            pointer-events: none; z-index: 11;
+        }
+
+        /* Layer element list */
+        .layer-expand-btn {
+            background: transparent; border: none; color: #aaa;
+            font-size: 9px; cursor: pointer; padding: 0 3px;
+            line-height: 1; flex-shrink: 0; min-width: 14px;
+        }
+        .layer-element-list { padding-left: 8px; margin-top: 2px; }
+        .layer-element-item {
+            display: flex; align-items: center;
+            padding: 2px 6px; font-size: 10px; color: #bbb;
+            cursor: pointer; border-radius: 3px; gap: 4px;
+            user-select: none;
+        }
+        .layer-element-item:hover { background: #555; }
+        .layer-element-item.selected { background: #0056a3; color: #fff; }
+        .layer-element-item .elem-icon { font-size: 11px; flex-shrink: 0; }
 
         .canvas-wrapper {
             position: relative;
@@ -1722,6 +1757,7 @@
                 View
                 <div class="dropdown-menu" id="viewMenu">
                     <div class="dropdown-item" onclick="event.stopPropagation(); toggleGrid(); hideAllDropdowns();">Toggle Grid</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); toggleGuides(); hideAllDropdowns();">Toggle Guides</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); fitToScreen(); hideAllDropdowns();">Fit to Screen</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); actualSize(); hideAllDropdowns();">Actual Size (100%)</div>
                     <div class="dropdown-divider"></div>
@@ -1992,9 +2028,13 @@
         <div class="workspace">
             <!-- Canvas Container (Left) -->
             <div class="canvas-container" id="canvasContainer">
+                <div class="ruler-corner" id="rulerCorner"></div>
+                <canvas id="rulerTop" class="ruler ruler-h"></canvas>
+                <canvas id="rulerLeft" class="ruler ruler-v"></canvas>
                 <div class="canvas-wrapper" id="canvasWrapper">
                     <canvas id="mainCanvas" class="checkered"></canvas>
                     <canvas id="gridCanvas" class="grid-overlay"></canvas>
+                    <canvas id="guideCanvas" class="guide-overlay"></canvas>
                 </div>
             </div>
 
@@ -2155,7 +2195,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.8.1</p>
+                    <p>Version 1.9.0</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2360,6 +2400,12 @@
         let lastPolygonalLassoClickTime = 0;   // timestamp for double-click detection
         let shapeFilled = false;           // whether rectangle/ellipse shapes are filled
         let cursorRingVisible = false;
+        let guides = [];              // [{type:'h', pos:y} | {type:'v', pos:x}] canvas coords
+        let showGuides = true;
+        let draggingGuideIndex = -1;
+        let creatingGuide = null;     // {type, canvasPos} while dragging from ruler
+        const RULER_SIZE = 20;
+        let selectedElementInfo = null; // {layerIndex, strokeId}
 
         // Per-tool settings memory (size and opacity remembered per tool)
         const toolSettings = {
@@ -2423,6 +2469,7 @@
                 visible: true,
                 opacity: 1,
                 locked: false,
+                expanded: false,
                 strokes: []
             });
             
@@ -2456,6 +2503,10 @@
 
             // Fixed tooltip for tool-panel buttons (avoids overflow-clip)
             initPanelTooltip();
+
+            // Initialize rulers and guides
+            initRulers();
+            requestAnimationFrame(() => { drawRulers(); drawGuides(); });
 
             // Start in fit-to-screen mode
             requestAnimationFrame(() => fitToScreen());
@@ -3560,6 +3611,7 @@
                 if (toolPanel.classList.contains('collapsed')) {
                     updateScrollButtons();
                 }
+                requestAnimationFrame(drawRulers);
             });
         }
 
@@ -3756,7 +3808,15 @@
             startX = x;
             startY = y;
             isDrawing = true;
-            
+
+            // Guide hit-test — intercept before tool handling
+            if (showGuides && currentTool !== 'crop') {
+                const hitIdx = guides.findIndex(g =>
+                    g.type === 'h' ? Math.abs(y - g.pos) * zoom < 6
+                                   : Math.abs(x - g.pos) * zoom < 6);
+                if (hitIdx !== -1) { draggingGuideIndex = hitIdx; isDrawing = false; return; }
+            }
+
             if (currentTool === 'zoom') {
                 zoomStep(e.altKey ? -1 : 1);
                 isDrawing = false; // zoom is a one-shot action, don't enter draw mode
@@ -3818,8 +3878,10 @@
                 startCrop(x, y);
             } else if (currentTool === 'move') {
                 if (!startMoveInteraction(x, y, e)) {
-                    startPan(e);
-                    moveInteraction = { type: 'pan' };
+                    if (!startLayerMoveInteraction(x, y)) {
+                        startPan(e);
+                        moveInteraction = { type: 'pan' };
+                    }
                 }
             }
         }
@@ -3828,6 +3890,23 @@
         function handlePointerMove(e, x, y) {
             // Update position display
             document.getElementById('mousePosition').textContent = `${Math.round(x)}, ${Math.round(y)}`;
+
+            // Guide dragging
+            if (draggingGuideIndex !== -1) {
+                guides[draggingGuideIndex].pos = Math.round(
+                    guides[draggingGuideIndex].type === 'h' ? y : x);
+                canvas.style.cursor = guides[draggingGuideIndex].type === 'h' ? 'ns-resize' : 'ew-resize';
+                drawGuides();
+                return;
+            }
+
+            // Near-guide cursor hint (only when not actively drawing)
+            if (showGuides && !isDrawing) {
+                const near = guides.find(g =>
+                    g.type === 'h' ? Math.abs(y - g.pos) * zoom < 6
+                                   : Math.abs(x - g.pos) * zoom < 6);
+                if (near) { canvas.style.cursor = near.type === 'h' ? 'ns-resize' : 'ew-resize'; }
+            }
 
             // Polygonal lasso rubber-band: update preview even when mouse button is up
             if (currentTool === 'polygonalLasso' && polygonalLassoActive) {
@@ -3875,6 +3954,18 @@
 
         // Handle pointer up (mouse or touch end)
         function handlePointerUp() {
+            // Commit or delete dragged guide
+            if (draggingGuideIndex !== -1) {
+                const g = guides[draggingGuideIndex];
+                if ((g.type === 'h' && (g.pos < 0 || g.pos > canvas.height)) ||
+                    (g.type === 'v' && (g.pos < 0 || g.pos > canvas.width)))
+                    guides.splice(draggingGuideIndex, 1);
+                draggingGuideIndex = -1;
+                canvas.style.cursor = currentTool === 'move' ? 'grab' : 'crosshair';
+                drawGuides();
+                return;
+            }
+
             if (isDrawing) {
                 isDrawing = false;
                 
@@ -4039,7 +4130,7 @@
             }
 
             // Update cursor
-            const sizeTools = ['brush', 'pencil', 'eraser', 'spray'];
+            const sizeTools = ['brush', 'pencil', 'eraser', 'spray', 'line', 'rectangle', 'ellipse'];
             if (tool === 'move') {
                 canvas.style.cursor = 'grab';
             } else if (tool === 'zoom') {
@@ -4072,7 +4163,7 @@
         function updateCursorRing(e) {
             const ring = document.getElementById('brushCursorRing');
             if (!ring) return;
-            const sizeTools = ['brush', 'pencil', 'eraser', 'spray'];
+            const sizeTools = ['brush', 'pencil', 'eraser', 'spray', 'line', 'rectangle', 'ellipse'];
             if (!sizeTools.includes(currentTool)) { ring.style.display = 'none'; return; }
             const diameter = Math.max(2, brushSize * zoom);
             const radius = diameter / 2;
@@ -4094,6 +4185,23 @@
         function toggleLayerLock(index) {
             layers[index].locked = !layers[index].locked;
             updateLayerList();
+        }
+
+        function selectLayerElement(layerIndex, strokeId) {
+            // Deselect all strokes on all layers
+            layers.forEach(l => (l.strokes || []).forEach(s => s.selected = false));
+            if (selectedElementInfo &&
+                selectedElementInfo.layerIndex === layerIndex &&
+                selectedElementInfo.strokeId === strokeId) {
+                selectedElementInfo = null; // second click = deselect
+            } else {
+                selectedElementInfo = { layerIndex, strokeId };
+                currentLayer = layerIndex;
+                const stroke = layers[layerIndex].strokes.find(s => s.id === strokeId);
+                if (stroke) stroke.selected = true;
+            }
+            updateLayerList();
+            renderLayers();
         }
 
         // Use brush/pencil/eraser/spray
@@ -4151,6 +4259,7 @@
                     const stroke = {
                         id: ++strokeIdCounter,
                         tool: currentTool,
+                        name: '',
                         color: primaryColor,
                         size: brushSize,
                         opacity: opacity,
@@ -4184,7 +4293,7 @@
             const layer = layers[currentLayer];
             if (!layer.strokes) layer.strokes = [];
             const stroke = {
-                id: ++strokeIdCounter, tool: 'spray', color: primaryColor,
+                id: ++strokeIdCounter, tool: 'spray', name: '', color: primaryColor,
                 size: brushSize, opacity: opacity, compositeOp: 'source-over',
                 points: [{x, y}],
                 bx1: x - brushSize, by1: y - brushSize, bx2: x + brushSize, by2: y + brushSize,
@@ -4316,7 +4425,7 @@
             const y2 = Math.max(shapeStart.y, shapeEnd.y) + brushSize;
             if (!layer.strokes) layer.strokes = [];
             layer.strokes.push({
-                id: ++strokeIdCounter, tool: currentTool, color: primaryColor,
+                id: ++strokeIdCounter, tool: currentTool, name: '', color: primaryColor,
                 size: brushSize, opacity: opacity, compositeOp: 'source-over',
                 points: [shapeStart, shapeEnd],
                 bx1: x1, by1: y1, bx2: x2, by2: y2, selected: false
@@ -4824,7 +4933,7 @@
             if (filledCount > 0) {
                 if (!layer.strokes) layer.strokes = [];
                 layer.strokes.push({
-                    id: ++strokeIdCounter, tool: 'fill', color: fillColor,
+                    id: ++strokeIdCounter, tool: 'fill', name: '', color: fillColor,
                     size: 1, opacity: opacity, compositeOp: 'source-over',
                     points: [{x: startX, y: startY}],
                     bx1, by1, bx2: bx2 + 1, by2: by2 + 1, selected: false
@@ -4967,16 +5076,50 @@
             }
 
             drawSelectionOverlay();
+
+            // Amber border during layer move
+            if (moveInteraction && moveInteraction.type === 'layerMove') {
+                ctx.save();
+                ctx.strokeStyle = '#f0a500';
+                ctx.lineWidth = 2 / zoom;
+                ctx.setLineDash([5 / zoom, 5 / zoom]);
+                ctx.strokeRect(1 / zoom, 1 / zoom, canvas.width - 2 / zoom, canvas.height - 2 / zoom);
+                ctx.restore();
+            }
+
+            // Blue bounding-box highlight around selected element
+            if (selectedElementInfo) {
+                const selLayer = layers[selectedElementInfo.layerIndex];
+                const selStroke = (selLayer && selLayer.strokes || []).find(s => s.id === selectedElementInfo.strokeId);
+                if (selStroke) {
+                    ctx.save();
+                    ctx.strokeStyle = '#4af';
+                    ctx.lineWidth = 1.5 / zoom;
+                    ctx.setLineDash([3 / zoom, 3 / zoom]);
+                    const pad = 3 / zoom;
+                    ctx.strokeRect(selStroke.bx1 - pad, selStroke.by1 - pad,
+                                   selStroke.bx2 - selStroke.bx1 + pad * 2,
+                                   selStroke.by2 - selStroke.by1 + pad * 2);
+                    ctx.restore();
+                }
+            }
+
             updateCanvasSize();
         }
 
         // Update canvas size
         function updateCanvasSize() {
             document.getElementById('canvasSize').textContent = `${canvas.width} × ${canvas.height}`;
-            
+
             // Update grid canvas
             gridCanvas.width = canvas.width;
             gridCanvas.height = canvas.height;
+
+            // Sync guide canvas dimensions (must match canvas; drawGuides also sets this)
+            const gc = document.getElementById('guideCanvas');
+            if (gc && (gc.width !== canvas.width || gc.height !== canvas.height)) {
+                drawGuides();
+            }
         }
 
         // Save canvas state
@@ -5032,6 +5175,12 @@
                 markUnsaved();
             }
             
+            // Clear element selection on history change
+            if (selectedElementInfo) {
+                layers.forEach(l => (l.strokes || []).forEach(s => s.selected = false));
+                selectedElementInfo = null;
+            }
+
             // Save state to localStorage after each action
             saveEditorState();
         }
@@ -5158,6 +5307,7 @@
                 visible: true,
                 opacity: 1,
                 locked: false,
+                expanded: false,
                 strokes: []
             };
             
@@ -5305,24 +5455,87 @@
                 layerControls.appendChild(visibilityBtn);
                 layerControls.appendChild(deleteBtn);
                 
+                // Expand/collapse button
+                const expandBtn = document.createElement('button');
+                expandBtn.className = 'layer-expand-btn';
+                const hasStrokes = layer.strokes && layer.strokes.length > 0;
+                expandBtn.textContent = hasStrokes ? (layers[index].expanded ? '▼' : '▶') : ' ';
+                expandBtn.title = hasStrokes ? (layers[index].expanded ? 'Collapse' : 'Expand elements') : '';
+                expandBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (!hasStrokes) return;
+                    layers[index].expanded = !layers[index].expanded;
+                    updateLayerList();
+                };
+
+                item.appendChild(expandBtn);
                 item.appendChild(layerPreview);
                 item.appendChild(layerInfo);
                 item.appendChild(layerControls);
-                
+
                 item.onclick = (e) => {
                     // Don't select if we just finished dragging
-                    if (justDragged) {
-                        return;
-                    }
-                    
+                    if (justDragged) { return; }
                     // Don't select if clicking on the layer name (let double-click handle it)
-                    if (e.target === layerNameDiv || e.target.closest('.layer-name')) {
-                        return;
+                    if (e.target === layerNameDiv || e.target.closest('.layer-name')) { return; }
+                    // Clear element selection when switching layers
+                    if (index !== currentLayer) {
+                        selectedElementInfo = null;
+                        layers.forEach(l => (l.strokes || []).forEach(s => s.selected = false));
                     }
-                    
                     selectLayer(index);
                 };
                 layerList.appendChild(item);
+
+                // Element list (shown when expanded)
+                if (layers[index].expanded && hasStrokes) {
+                    const elemList = document.createElement('div');
+                    elemList.className = 'layer-element-list';
+                    const toolIcons = { brush:'🖌', pencil:'✏️', eraser:'⬜', spray:'💨',
+                                        line:'╲', rectangle:'▭', ellipse:'◯', text:'T', fill:'🪣' };
+                    layer.strokes.forEach((stroke, si) => {
+                        const row = document.createElement('div');
+                        const isSelected = selectedElementInfo &&
+                            selectedElementInfo.layerIndex === index &&
+                            selectedElementInfo.strokeId === stroke.id;
+                        row.className = 'layer-element-item' + (isSelected ? ' selected' : '');
+
+                        const displayName = stroke.name || `${stroke.tool} #${si + 1}`;
+                        const iconSpan = document.createElement('span');
+                        iconSpan.className = 'elem-icon';
+                        iconSpan.textContent = toolIcons[stroke.tool] || '•';
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = displayName;
+                        row.appendChild(iconSpan);
+                        row.appendChild(nameSpan);
+
+                        row.onclick = (e) => { e.stopPropagation(); selectLayerElement(index, stroke.id); };
+
+                        row.ondblclick = (e) => {
+                            e.stopPropagation();
+                            const input = document.createElement('input');
+                            input.type = 'text';
+                            input.value = stroke.name || displayName;
+                            input.style.cssText = 'width:85%;background:#333;color:#fff;border:1px solid #4af;border-radius:2px;font-size:10px;padding:1px 3px;';
+                            row.innerHTML = '';
+                            row.appendChild(iconSpan);
+                            row.appendChild(input);
+                            input.focus(); input.select();
+                            const commit = () => {
+                                stroke.name = input.value.trim();
+                                updateLayerList();
+                            };
+                            input.onblur = commit;
+                            input.onkeydown = (ev) => {
+                                if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+                                else if (ev.key === 'Escape') { input.value = stroke.name || displayName; input.blur(); }
+                            };
+                        };
+
+                        elemList.appendChild(row);
+                    });
+                    layerList.appendChild(elemList);
+                }
             });
         }
 
@@ -5440,6 +5653,7 @@
             document.getElementById('statusZoom').textContent = slider.value + '%';
             
             canvasWrapper.style.transform = `scale(${zoom})`;
+            requestAnimationFrame(() => { drawRulers(); drawGuides(); });
         }
 
         function panCanvas(e) {
@@ -5594,6 +5808,118 @@
             const slider = document.getElementById('toleranceSlider');
             fillTolerance = parseInt(slider.value);
             document.getElementById('toleranceDisplay').textContent = slider.value;
+        }
+
+        // Ruler & Guide system
+        function initRulers() {
+            const rulerTop  = document.getElementById('rulerTop');
+            const rulerLeft = document.getElementById('rulerLeft');
+            if (!rulerTop || !rulerLeft) return;
+            rulerTop.addEventListener('mousedown', () => {
+                creatingGuide = { type: 'h' };
+                document.addEventListener('mousemove', onGuideCreationMove);
+                document.addEventListener('mouseup', onGuideCreationEnd, { once: true });
+            });
+            rulerLeft.addEventListener('mousedown', () => {
+                creatingGuide = { type: 'v' };
+                document.addEventListener('mousemove', onGuideCreationMove);
+                document.addEventListener('mouseup', onGuideCreationEnd, { once: true });
+            });
+        }
+
+        function drawRulers() {
+            const container = document.getElementById('canvasContainer');
+            const rulerTop  = document.getElementById('rulerTop');
+            const rulerLeft = document.getElementById('rulerLeft');
+            if (!rulerTop || !container) return;
+            const cw = Math.max(1, container.clientWidth - RULER_SIZE);
+            const ch = Math.max(1, container.clientHeight - RULER_SIZE);
+            rulerTop.width  = cw;  rulerTop.height  = RULER_SIZE;
+            rulerLeft.width = RULER_SIZE; rulerLeft.height = ch;
+
+            const wrapRect = canvasWrapper.getBoundingClientRect();
+            const cRect    = container.getBoundingClientRect();
+            const originX  = wrapRect.left - cRect.left - RULER_SIZE;
+            const originY  = wrapRect.top  - cRect.top  - RULER_SIZE;
+
+            let step = 100;
+            if (zoom >= 4) step = 10;
+            else if (zoom >= 2) step = 25;
+            else if (zoom >= 1) step = 50;
+            else if (zoom < 0.5) step = 200;
+
+            const tCtx = rulerTop.getContext('2d');
+            tCtx.clearRect(0, 0, cw, RULER_SIZE);
+            tCtx.fillStyle = '#888'; tCtx.font = '7px sans-serif'; tCtx.textAlign = 'center';
+            for (let px = 0; px <= canvas.width + step; px += step) {
+                const sx = Math.round(originX + px * zoom);
+                if (sx < 0 || sx > cw) continue;
+                const major = px % (step * 5) === 0;
+                tCtx.fillRect(sx, major ? 5 : 13, 1, major ? 15 : 7);
+                if (major) { tCtx.fillStyle = '#aaa'; tCtx.fillText(String(px), sx, 7); tCtx.fillStyle = '#888'; }
+            }
+
+            const lCtx = rulerLeft.getContext('2d');
+            lCtx.clearRect(0, 0, RULER_SIZE, ch);
+            lCtx.save();
+            lCtx.translate(RULER_SIZE, 0); lCtx.rotate(Math.PI / 2);
+            lCtx.fillStyle = '#888'; lCtx.font = '7px sans-serif'; lCtx.textAlign = 'center';
+            for (let py = 0; py <= canvas.height + step; py += step) {
+                const sy = Math.round(originY + py * zoom);
+                if (sy < 0 || sy > ch) continue;
+                const major = py % (step * 5) === 0;
+                lCtx.fillRect(-sy, -(major ? 15 : 7), 1, major ? 15 : 7);
+                if (major) { lCtx.fillStyle = '#aaa'; lCtx.fillText(String(py), -sy, -8); lCtx.fillStyle = '#888'; }
+            }
+            lCtx.restore();
+        }
+
+        function drawGuides() {
+            const gc = document.getElementById('guideCanvas');
+            if (!gc) return;
+            gc.width = canvas.width; gc.height = canvas.height;
+            if (!showGuides) return;
+            const gCtx = gc.getContext('2d');
+            gCtx.strokeStyle = 'rgba(0,180,255,0.85)';
+            gCtx.lineWidth = Math.max(0.5, 1 / zoom);
+            gCtx.setLineDash([4 / zoom, 4 / zoom]);
+            // Include creatingGuide preview
+            const allGuides = [...guides];
+            if (creatingGuide && creatingGuide.canvasPos != null)
+                allGuides.push({ type: creatingGuide.type, pos: creatingGuide.canvasPos });
+            allGuides.forEach(g => {
+                gCtx.beginPath();
+                if (g.type === 'h') { gCtx.moveTo(0, g.pos); gCtx.lineTo(canvas.width, g.pos); }
+                else                { gCtx.moveTo(g.pos, 0); gCtx.lineTo(g.pos, canvas.height); }
+                gCtx.stroke();
+            });
+            gCtx.setLineDash([]);
+        }
+
+        function onGuideCreationMove(e) {
+            if (!creatingGuide) return;
+            const rect = canvas.getBoundingClientRect();
+            creatingGuide.canvasPos = creatingGuide.type === 'h'
+                ? (e.clientY - rect.top) / zoom
+                : (e.clientX - rect.left) / zoom;
+            drawGuides();
+        }
+
+        function onGuideCreationEnd(e) {
+            document.removeEventListener('mousemove', onGuideCreationMove);
+            if (!creatingGuide) return;
+            const rect = canvas.getBoundingClientRect();
+            const over = e.clientX >= rect.left && e.clientX <= rect.right &&
+                         e.clientY >= rect.top  && e.clientY <= rect.bottom;
+            if (over && creatingGuide.canvasPos != null)
+                guides.push({ type: creatingGuide.type, pos: Math.round(creatingGuide.canvasPos) });
+            creatingGuide = null;
+            drawGuides();
+        }
+
+        function toggleGuides() {
+            showGuides = !showGuides;
+            drawGuides();
         }
 
         // Grid toggle
@@ -6821,6 +7147,11 @@
                         e.preventDefault(); e.stopPropagation();
                         actualSize();
                         break;
+                    case 'Semicolon':
+                        // Ctrl+; toggle guides
+                        e.preventDefault(); e.stopPropagation();
+                        toggleGuides();
+                        break;
                 }
                 return; // don't process bare-key shortcuts when Ctrl is held
             }
@@ -7505,8 +7836,40 @@
             return false;
         }
 
+        function startLayerMoveInteraction(x, y) {
+            if (isLayerLocked()) return false;
+            // If a specific element is selected, lift just that stroke
+            if (selectedElementInfo && selectedElementInfo.layerIndex === currentLayer) {
+                const ok = extractVectorFloatingSelection();
+                if (ok) { selectedElementInfo = null; updateLayerList(); return true; }
+            }
+            const layer = layers[currentLayer];
+            const layerCtx = layer.canvas.getContext('2d');
+            const snapshot = layerCtx.getImageData(0, 0, layer.canvas.width, layer.canvas.height);
+            moveInteraction = { type: 'layerMove', lastX: x, lastY: y, snapshot, totalDx: 0, totalDy: 0 };
+            canvas.style.cursor = 'grabbing';
+            return true;
+        }
+
         function updateMoveInteraction(x, y, e) {
-            if (!moveInteraction || !floatingSelection) return false;
+            if (!moveInteraction) return false;
+
+            // Layer content move
+            if (moveInteraction.type === 'layerMove') {
+                const rdx = Math.round(x - moveInteraction.lastX);
+                const rdy = Math.round(y - moveInteraction.lastY);
+                if (rdx === 0 && rdy === 0) return true;
+                moveInteraction.totalDx += rdx; moveInteraction.totalDy += rdy;
+                moveInteraction.lastX = x; moveInteraction.lastY = y;
+                const layer = layers[currentLayer];
+                const layerCtx = layer.canvas.getContext('2d');
+                layerCtx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+                layerCtx.putImageData(moveInteraction.snapshot, moveInteraction.totalDx, moveInteraction.totalDy);
+                renderLayers();
+                return true;
+            }
+
+            if (!floatingSelection) return false;
 
             if (moveInteraction.type === 'move-selection') {
                 floatingSelection.tx = moveInteraction.baseTx + (x - moveInteraction.startX);
@@ -7564,6 +7927,21 @@
 
         function endMoveInteraction() {
             if (!moveInteraction) return;
+            if (moveInteraction.type === 'layerMove') {
+                const { totalDx, totalDy } = moveInteraction;
+                moveInteraction = null;
+                canvas.style.cursor = 'grab';
+                if (totalDx !== 0 || totalDy !== 0) {
+                    const layer = layers[currentLayer];
+                    (layer.strokes || []).forEach(s => {
+                        s.bx1 += totalDx; s.by1 += totalDy;
+                        s.bx2 += totalDx; s.by2 += totalDy;
+                        (s.points || []).forEach(p => { p.x += totalDx; p.y += totalDy; });
+                    });
+                    addToHistory('Layer Moved');
+                }
+                return;
+            }
             const shouldCommit = moveInteraction.type === 'move-selection' || moveInteraction.type === 'scale-selection' || moveInteraction.type === 'rotate-selection';
             moveInteraction = null;
             if (shouldCommit) {
