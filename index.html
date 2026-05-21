@@ -798,6 +798,11 @@
             background: #0078d4;
         }
 
+        .layer-item.locked {
+            border-left: 3px solid #f0a500;
+            opacity: 0.85;
+        }
+
         .layer-item.dragging {
             opacity: 0.5;
             cursor: grabbing;
@@ -2088,6 +2093,9 @@
             </div>
         </div>
 
+        <!-- Brush cursor ring overlay (screen-space, follows mouse) -->
+        <div id="brushCursorRing" style="position:fixed;pointer-events:none;border-radius:50%;display:none;border:1px solid rgba(255,255,255,0.9);box-shadow:0 0 0 1px rgba(0,0,0,0.6);z-index:9999;"></div>
+
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="status-item">Tool: <span id="currentTool">Move</span></div>
@@ -2147,7 +2155,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.8.0</p>
+                    <p>Version 1.8.1</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2351,6 +2359,7 @@
         let polygonalLassoPreviewPoint = null; // cursor pos for rubber-band preview
         let lastPolygonalLassoClickTime = 0;   // timestamp for double-click detection
         let shapeFilled = false;           // whether rectangle/ellipse shapes are filled
+        let cursorRingVisible = false;
 
         // Per-tool settings memory (size and opacity remembered per tool)
         const toolSettings = {
@@ -2413,6 +2422,7 @@
                 name: 'Background',
                 visible: true,
                 opacity: 1,
+                locked: false,
                 strokes: []
             });
             
@@ -2887,9 +2897,10 @@
                 canvas: backgroundLayer,
                 name: 'Background',
                 visible: true,
-                opacity: 1
+                opacity: 1,
+                locked: false
             }];
-            
+
             currentLayer = 0;
             history = [];
             historyStates = [];
@@ -2930,11 +2941,12 @@
                 canvas: backgroundLayer,
                 name: 'Background',
                 visible: true,
-                opacity: 1
+                opacity: 1,
+                locked: false
             }];
-            
+
             currentLayer = 0;
-            
+
             // Render initial canvas
             renderLayers();
             updateLayerList();
@@ -3117,7 +3129,8 @@
                             canvas: createLayerCanvas(),
                             name: layerData.name,
                             visible: layerData.visible !== undefined ? layerData.visible : true,
-                            opacity: layerData.opacity !== undefined ? layerData.opacity : 1
+                            opacity: layerData.opacity !== undefined ? layerData.opacity : 1,
+                            locked: layerData.locked || false
                         };
                         
                         const layerCtx = newLayer.canvas.getContext('2d');
@@ -3668,8 +3681,10 @@
             // Mouse events
             canvas.addEventListener('mousedown', handleMouseDown);
             canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mousemove', updateCursorRing);
             canvas.addEventListener('mouseup', handleMouseUp);
             canvas.addEventListener('mouseleave', handleMouseUp);
+            canvas.addEventListener('mouseleave', () => { const r = document.getElementById('brushCursorRing'); if (r) r.style.display = 'none'; });
             canvas.addEventListener('dblclick', handleDoubleClick);
             
             // Touch events for mobile support
@@ -3795,6 +3810,7 @@
                 const wbMoved = selectionOp === 'new' && tryStartSelectionBorderMove(x, y);
                 if (!wbMoved) selectMagicWand(x, y);
             } else if (currentTool === 'text') {
+                if (isLayerLocked()) return;
                 showTextDialog(x, y);
             } else if (currentTool === 'fill') {
                 floodFill(x, y, primaryColor);
@@ -4023,12 +4039,19 @@
             }
 
             // Update cursor
+            const sizeTools = ['brush', 'pencil', 'eraser', 'spray'];
             if (tool === 'move') {
                 canvas.style.cursor = 'grab';
             } else if (tool === 'zoom') {
                 canvas.style.cursor = 'zoom-in';
+            } else if (sizeTools.includes(tool)) {
+                canvas.style.cursor = 'none';
             } else {
                 canvas.style.cursor = 'crosshair';
+            }
+            if (!sizeTools.includes(tool)) {
+                const r = document.getElementById('brushCursorRing');
+                if (r) r.style.display = 'none';
             }
 
             // Show tolerance slider only for fill tool
@@ -4046,8 +4069,36 @@
             document.getElementById('currentTool').textContent = toolDisplayNames[tool] || (tool.charAt(0).toUpperCase() + tool.slice(1));
         }
 
+        function updateCursorRing(e) {
+            const ring = document.getElementById('brushCursorRing');
+            if (!ring) return;
+            const sizeTools = ['brush', 'pencil', 'eraser', 'spray'];
+            if (!sizeTools.includes(currentTool)) { ring.style.display = 'none'; return; }
+            const diameter = Math.max(2, brushSize * zoom);
+            const radius = diameter / 2;
+            ring.style.width = diameter + 'px';
+            ring.style.height = diameter + 'px';
+            ring.style.left = (e.clientX - radius) + 'px';
+            ring.style.top = (e.clientY - radius) + 'px';
+            ring.style.display = 'block';
+        }
+
+        function isLayerLocked() {
+            if (layers[currentLayer] && layers[currentLayer].locked) {
+                showNotification('Layer is locked', 1500);
+                return true;
+            }
+            return false;
+        }
+
+        function toggleLayerLock(index) {
+            layers[index].locked = !layers[index].locked;
+            updateLayerList();
+        }
+
         // Use brush/pencil/eraser/spray
         function useBrush(x, y, isDrawing) {
+            if (isLayerLocked()) return;
             const layer = layers[currentLayer];
             const layerCtx = layer.canvas.getContext('2d');
             const usingSelectionClip = applySelectionClip(layerCtx);
@@ -4129,6 +4180,7 @@
 
         // Spray tool — continuous particle emission with Gaussian distribution
         function startSpray(x, y) {
+            if (isLayerLocked()) return;
             const layer = layers[currentLayer];
             if (!layer.strokes) layer.strokes = [];
             const stroke = {
@@ -4252,6 +4304,7 @@
 
         function commitShape() {
             if (!shapeStart || !shapeEnd) return;
+            if (isLayerLocked()) return;
             const layer = layers[currentLayer];
             const layerCtx = layer.canvas.getContext('2d');
             const usingSelectionClip = applySelectionClip(layerCtx);
@@ -4700,6 +4753,7 @@
 
         // Flood fill
         function floodFill(startX, startY, fillColor) {
+            if (isLayerLocked()) return;
             const layer = layers[currentLayer];
             const layerCtx = layer.canvas.getContext('2d');
             const w = layer.canvas.width, h = layer.canvas.height;
@@ -5060,9 +5114,10 @@
                             canvas: createLayerCanvas(),
                             name: layerData.name,
                             visible: layerData.visible,
-                            opacity: layerData.opacity
+                            opacity: layerData.opacity,
+                            locked: layerData.locked || false
                         };
-                        
+
                         const layerCtx = newLayer.canvas.getContext('2d');
                         layerCtx.drawImage(img, 0, 0);
                         layers[i] = newLayer;
@@ -5102,6 +5157,7 @@
                 name: `Layer ${layers.length + 1}`,
                 visible: true,
                 opacity: 1,
+                locked: false,
                 strokes: []
             };
             
@@ -5118,7 +5174,7 @@
             
             layers.forEach((layer, index) => {
                 const item = document.createElement('div');
-                item.className = 'layer-item' + (index === currentLayer ? ' active' : '');
+                item.className = 'layer-item' + (index === currentLayer ? ' active' : '') + (layers[index].locked ? ' locked' : '');
                 item.draggable = true;
                 item.dataset.layerIndex = index;
                 
@@ -5221,6 +5277,12 @@
                 const layerControls = document.createElement('div');
                 layerControls.className = 'layer-controls';
                 
+                const lockBtn = document.createElement('button');
+                lockBtn.className = 'layer-btn';
+                lockBtn.title = layers[index].locked ? 'Unlock layer' : 'Lock layer';
+                lockBtn.textContent = layers[index].locked ? '🔒' : '🔓';
+                lockBtn.onclick = (e) => { e.stopPropagation(); toggleLayerLock(index); };
+
                 const visibilityBtn = document.createElement('button');
                 visibilityBtn.className = 'layer-btn';
                 visibilityBtn.textContent = layer.visible ? '👁' : '🚫';
@@ -5228,15 +5290,18 @@
                     e.stopPropagation();
                     toggleLayerVisibility(index);
                 };
-                
+
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'layer-btn';
                 deleteBtn.textContent = '🗑';
+                deleteBtn.disabled = layers[index].locked;
+                deleteBtn.style.opacity = layers[index].locked ? '0.3' : '1';
                 deleteBtn.onclick = (e) => {
                     e.stopPropagation();
                     deleteLayer(index);
                 };
-                
+
+                layerControls.appendChild(lockBtn);
                 layerControls.appendChild(visibilityBtn);
                 layerControls.appendChild(deleteBtn);
                 
@@ -5354,6 +5419,7 @@
         }
 
         function deleteLayer(index) {
+            if (layers[index] && layers[index].locked) { showNotification('Unlock layer before deleting', 2000); return; }
             if (layers.length > 1) {
                 layers.splice(index, 1);
                 if (currentLayer >= index) {
@@ -5776,7 +5842,8 @@
                             canvas: createLayerCanvas(),
                             name: 'Imported Image',
                             visible: true,
-                            opacity: 1
+                            opacity: 1,
+                            locked: false
                         }];
                         
                         const layerCtx = layers[0].canvas.getContext('2d');
@@ -6359,7 +6426,8 @@
                                 canvas: createLayerCanvas(),
                                 name: layerData.name,
                                 visible: layerData.visible !== undefined ? layerData.visible : true,
-                                opacity: layerData.opacity !== undefined ? layerData.opacity : 1
+                                opacity: layerData.opacity !== undefined ? layerData.opacity : 1,
+                                locked: layerData.locked || false
                             };
                             
                             const layerCtx = newLayer.canvas.getContext('2d');
@@ -6591,7 +6659,8 @@
                                     canvas: createLayerCanvas(),
                                     name: layerData.name,
                                     visible: layerData.visible !== undefined ? layerData.visible : true,
-                                    opacity: layerData.opacity !== undefined ? layerData.opacity : 1
+                                    opacity: layerData.opacity !== undefined ? layerData.opacity : 1,
+                                    locked: layerData.locked || false
                                 };
                                 
                                 const layerCtx = newLayer.canvas.getContext('2d');
@@ -7292,6 +7361,7 @@
         }
 
         function extractFloatingSelectionFromCurrentLayer() {
+            if (isLayerLocked()) return false;
             rebuildSelectionMask();
             if (!selectionMaskCanvas || !selectionBounds || selectionBounds.width < 1 || selectionBounds.height < 1) {
                 return false;
@@ -7771,6 +7841,7 @@
         }
 
         function extractVectorFloatingSelection() {
+            if (isLayerLocked()) return false;
             const layer = layers[currentLayer];
             const sel = (layer && layer.strokes || []).filter(s => s.selected);
             if (sel.length === 0) return false;
@@ -7981,7 +8052,8 @@
                     canvas: createLayerCanvas(),
                     name: `${currentLayerData.name} Copy`,
                     visible: true,
-                    opacity: currentLayerData.opacity
+                    opacity: currentLayerData.opacity,
+                    locked: false
                 };
                 
                 // Copy the content
@@ -8046,9 +8118,10 @@
                     canvas: flattenedCanvas,
                     name: 'Background',
                     visible: true,
-                    opacity: 1
+                    opacity: 1,
+                    locked: false
                 }];
-                
+
                 currentLayer = 0;
                 updateLayerList();
                 renderLayers();

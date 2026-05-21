@@ -5,6 +5,12 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-05-21
+
+### Added
+- **Brush cursor ring** — a circular outline follows the mouse for brush, pencil, eraser, and spray tools, showing the exact brush diameter at the current zoom level; system cursor hidden while the ring is shown
+- **Layer lock** — each layer now has a lock button (🔓/🔒) in the layer panel; locking a layer prevents drawing, filling, spraying, shapes, text edits, and floating-selection lifts; deleting a locked layer shows a toast notification instead; locked layers display an amber left-border indicator
+
 ## [1.8.0] - 2026-05-21
 
 ### Added
