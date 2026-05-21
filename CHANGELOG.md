@@ -5,6 +5,29 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-05-20
+
+### Added
+- **Per-Tool Size and Opacity Memory**
+  - Each tool independently remembers its last-used Size and Opacity values.
+  - Switching tools restores that tool's saved settings — no need to re-adjust sliders on every switch.
+  - Default values are pre-configured per tool (e.g. Pencil=2px, Eraser=20px, Spray=20px/80%, shapes=2px).
+- **Fill Tolerance Slider**
+  - A Tolerance control (0–255) appears in the toolbar when the Fill tool is active.
+  - Tolerance 0 matches exact pixel colors; higher values fill through anti-aliased or similar-colored regions.
+  - Default tolerance is 30.
+- **Canvas Starts in Fit-to-Screen Mode**
+  - New documents and restored sessions automatically fit the canvas to the available workspace on load.
+- **Improved Tool Panel Tooltips**
+  - Tool panel button tooltips now use a `position: fixed` JavaScript-driven tooltip instead of CSS `::after`, which was clipped by the panel's `overflow-y: auto`. Tooltip text appears to the right of the panel, always fully visible.
+
+### Fixed
+- **Fill Tool**
+  - Flood fill now uses a Uint8Array visited buffer instead of a string Set — significantly faster on large canvases.
+  - Fill now respects the current Opacity slider (alpha-blends the fill color onto the existing pixel rather than always writing alpha 255).
+  - Configurable tolerance via the new Tolerance slider (was hardcoded at 0, making it impossible to fill anti-aliased areas).
+  - Added early exit when the clicked pixel already matches the fill color.
+
 ## [1.4.0] - 2026-05-20
 
 ### Added
@@ -188,6 +211,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.5.0** - Per-tool size/opacity memory, fill tolerance slider, fixed flood fill (opacity + performance), canvas fit-to-screen on load, fixed panel tooltips
 - **v1.4.0** - Shape tools (Line, Rectangle, Ellipse); spray tool rewrite with Gaussian particle distribution and continuous emission
 - **v1.3.0** - Vector object system: selection tools detect and move drawn strokes directly; no tool switch required
 - **v1.2.2** - Fix selection tool infinite recursion; marquee/lasso/magic wand now correctly select drawn content

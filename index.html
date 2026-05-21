@@ -660,6 +660,28 @@
             background: #555;
         }
 
+        /* Suppress built-in CSS ::after tooltip for tool-panel buttons — JS tooltip handles these */
+        .tool-panel-button[title]:hover::after,
+        .tool-panel-button[title]:hover::before {
+            display: none !important;
+        }
+
+        /* JS-driven fixed tooltip */
+        #panelTooltip {
+            position: fixed;
+            background: #2c2c2c;
+            color: #fff;
+            font-size: 12px;
+            white-space: nowrap;
+            border-radius: 4px;
+            padding: 6px 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            border: 1px solid #555;
+            z-index: 99999;
+            pointer-events: none;
+            display: none;
+        }
+
         .tool-panel-button.active {
             background: #0078d4;
             box-shadow: 0 0 0 1px #0078d4;
@@ -1684,6 +1706,12 @@
                 <span id="opacityDisplay" title="Current opacity value">100</span>%
             </div>
 
+            <div class="control-group" id="toleranceGroup" style="display:none;">
+                <span class="control-label" title="Fill Tolerance">Tolerance:</span>
+                <input type="range" class="slider" id="toleranceSlider" min="0" max="255" value="30" onchange="updateFillTolerance()" title="Fill color tolerance (0=exact, 255=all)">
+                <span id="toleranceDisplay" title="Current tolerance value">30</span>
+            </div>
+
             <div class="control-group">
                 <span class="control-label" title="Canvas Zoom Level">Zoom:</span>
                 <input type="range" class="slider" id="zoomSlider" min="10" max="500" value="100" onchange="updateZoom()" title="Adjust canvas zoom level (10-500%)">
@@ -1890,6 +1918,9 @@
     <input type="file" class="file-input" id="fileInput" accept="image/*" onchange="loadImage(event)">
     <input type="file" class="file-input" id="projectFileInput" accept=".prophoto" onchange="handleProjectLoad(event)" style="display: none;">
 
+    <!-- Fixed tooltip for left-panel tool buttons (avoids overflow clipping) -->
+    <div id="panelTooltip"></div>
+
     <!-- About Modal -->
     <div class="modal-overlay" id="aboutModal" onclick="closeAboutModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
@@ -1898,23 +1929,23 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.2.1</p>
+                    <p>Version 1.5.0</p>
                 </div>
             </div>
             <div class="modal-body">
                 <p><strong>A browser-based Photoshop clone</strong> built with HTML5 Canvas, CSS3, and Vanilla JavaScript.</p>
-                
+
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
-                
-                <p>New in this version: Improved crop workflow, reliable keyboard shortcuts, persistent selection overlays, selection-bound editing for brush/fill, and double-click apply support for marquee, lasso, and magic wand tools.</p>
-                
+
+                <p>New in v1.4.0: Shape tools (Line, Rectangle, Ellipse with Shift-key constraints), rewritten spray tool with Gaussian particle distribution, fixed flood fill with tolerance slider and opacity support, per-tool size/opacity memory, canvas starts in fit-to-screen mode, and improved panel tooltips.</p>
+
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
                 Full-stack developer passionate about creating powerful web applications.</p>
-                
+
                 <h3>Features</h3>
-                <p>✓ 10 Professional drawing & selection tools<br>
+                <p>✓ 14 Professional drawing, shape & selection tools<br>
                 ✓ Multi-layer support with opacity control<br>
                 ✓ 7 Image filters and effects<br>
                 ✓ Undo/Redo system (20+ steps)<br>
@@ -2086,6 +2117,25 @@
         let shapeEnd = null;
         let sprayInterval = null;
         let sprayX = 0, sprayY = 0;
+        let fillTolerance = 30;
+
+        // Per-tool settings memory (size and opacity remembered per tool)
+        const toolSettings = {
+            move:      { size: 10, opacity: 100 },
+            marquee:   { size: 10, opacity: 100 },
+            lasso:     { size: 10, opacity: 100 },
+            magicWand: { size: 10, opacity: 100 },
+            brush:     { size: 10, opacity: 100 },
+            pencil:    { size: 2,  opacity: 100 },
+            eraser:    { size: 20, opacity: 100 },
+            spray:     { size: 20, opacity: 80  },
+            text:      { size: 24, opacity: 100 },
+            fill:      { size: 10, opacity: 100 },
+            crop:      { size: 10, opacity: 100 },
+            line:      { size: 2,  opacity: 100 },
+            rectangle: { size: 2,  opacity: 100 },
+            ellipse:   { size: 2,  opacity: 100 },
+        };
         let cropArea = null;
         let cropInteractionMode = null;
         let cropDragOffset = { x: 0, y: 0 };
@@ -2154,9 +2204,31 @@
             
             // Check for saved state and prompt user
             checkForSavedState();
-            
+
             // Save state periodically and on page unload
             setupAutoSave();
+
+            // Fixed tooltip for tool-panel buttons (avoids overflow-clip)
+            initPanelTooltip();
+
+            // Start in fit-to-screen mode
+            requestAnimationFrame(() => fitToScreen());
+        }
+
+        // Fixed tooltip for left-panel tool buttons
+        function initPanelTooltip() {
+            const tip = document.getElementById('panelTooltip');
+            document.querySelectorAll('.tool-panel-button[title]').forEach(btn => {
+                const text = btn.getAttribute('title');
+                btn.addEventListener('mouseenter', () => {
+                    tip.textContent = text;
+                    tip.style.display = 'block';
+                    const r = btn.getBoundingClientRect();
+                    tip.style.left = (r.right + 10) + 'px';
+                    tip.style.top = Math.max(4, r.top + (r.height - tip.offsetHeight) / 2) + 'px';
+                });
+                btn.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+            });
         }
 
         // Check for saved state and prompt user
@@ -2252,9 +2324,10 @@
             const dialog = document.getElementById('restoreDialog');
             dialog.classList.remove('show');
             dialog.style.display = 'none';
-            
+
             if (loadEditorState()) {
                 showNotification('Work restored successfully', 2000);
+                requestAnimationFrame(() => fitToScreen());
             } else {
                 showNotification('Error restoring work. Starting new session.', 3000);
                 initializeNewDocument();
@@ -2641,6 +2714,9 @@
             setTimeout(() => {
                 saveEditorState(true);
             }, 100);
+
+            // Fit canvas to screen
+            requestAnimationFrame(() => fitToScreen());
         }
 
         // Update project title in title bar
@@ -2738,6 +2814,7 @@
                         opacity: opacity,
                         zoom: zoom
                     },
+                    toolSettings: JSON.parse(JSON.stringify(toolSettings)),
                     history: history || [],
                     historyIndex: historyIndex !== undefined ? historyIndex : -1,
                     historyStates: (historyStates || []).map(state => ({
@@ -2840,12 +2917,22 @@
                                 selectTool(state.tool);
                             }
                             
+                            // Restore per-tool settings memory
+                            if (state.toolSettings) {
+                                Object.keys(state.toolSettings).forEach(t => {
+                                    if (toolSettings[t]) {
+                                        toolSettings[t].size    = state.toolSettings[t].size;
+                                        toolSettings[t].opacity = state.toolSettings[t].opacity;
+                                    }
+                                });
+                            }
+
                             // Restore settings
                             if (state.settings) {
                                 brushSize = state.settings.brushSize || 10;
                                 opacity = state.settings.opacity !== undefined ? state.settings.opacity : 1;
                                 zoom = state.settings.zoom || 1;
-                                
+
                                 // Update UI
                                 document.getElementById('sizeSlider').value = brushSize;
                                 document.getElementById('sizeDisplay').textContent = brushSize;
@@ -3604,22 +3691,42 @@
             if (sprayInterval) { clearInterval(sprayInterval); sprayInterval = null; }
             shapeStart = null;
             shapeEnd = null;
+
+            // Save current tool's size/opacity before switching
+            if (toolSettings[currentTool]) {
+                toolSettings[currentTool].size    = brushSize;
+                toolSettings[currentTool].opacity = Math.round(opacity * 100);
+            }
+
             currentTool = tool;
-            
+
+            // Restore the new tool's remembered size/opacity
+            if (toolSettings[tool]) {
+                brushSize = toolSettings[tool].size;
+                opacity   = toolSettings[tool].opacity / 100;
+                document.getElementById('sizeSlider').value    = brushSize;
+                document.getElementById('sizeDisplay').textContent = brushSize;
+                document.getElementById('opacitySlider').value = toolSettings[tool].opacity;
+                document.getElementById('opacityDisplay').textContent = toolSettings[tool].opacity;
+            }
+
             // Update tool buttons (both toolbar and tool panel)
             document.querySelectorAll('.tool-button, .tool-panel-button').forEach(btn => btn.classList.remove('active'));
             const toolButton = document.getElementById(tool + 'Tool');
             if (toolButton) {
                 toolButton.classList.add('active');
             }
-            
+
             // Update cursor
             if (tool === 'move') {
                 canvas.style.cursor = 'grab';
             } else {
                 canvas.style.cursor = 'crosshair';
             }
-            
+
+            // Show tolerance slider only for fill tool
+            document.getElementById('toleranceGroup').style.display = (tool === 'fill') ? '' : 'none';
+
             // Update status
             document.getElementById('currentTool').textContent = tool.charAt(0).toUpperCase() + tool.slice(1);
         }
@@ -4058,58 +4165,78 @@
         function floodFill(startX, startY, fillColor) {
             const layer = layers[currentLayer];
             const layerCtx = layer.canvas.getContext('2d');
-            const data = layerCtx.getImageData(0, 0, layer.canvas.width, layer.canvas.height);
+            const w = layer.canvas.width, h = layer.canvas.height;
+            const data = layerCtx.getImageData(0, 0, w, h);
+            const px = data.data;
 
-            if (hasActiveEditSelection() && !isPointSelected(startX, startY)) {
-                return;
-            }
-            
-            const targetColor = getPixelColor(data, startX, startY);
+            startX = Math.round(startX); startY = Math.round(startY);
+            if (startX < 0 || startY < 0 || startX >= w || startY >= h) return;
+
+            if (hasActiveEditSelection() && !isPointSelected(startX, startY)) return;
+
             const hex = hexToRgb(fillColor);
-            
-            const visited = new Set();
-            const stack = [[startX, startY]];
-            let fillBx1 = startX, fillBy1 = startY, fillBx2 = startX, fillBy2 = startY;
+            if (!hex) return;
+
+            // Blend fill color with current opacity
+            const fillA = Math.round(opacity * 255);
+            const ti = (startY * w + startX) * 4;
+            const tr = px[ti], tg = px[ti + 1], tb = px[ti + 2], ta = px[ti + 3];
+
+            // Skip if target pixel already exactly matches fill
+            if (tr === hex.r && tg === hex.g && tb === hex.b && ta === fillA) return;
+
+            const visited = new Uint8Array(w * h);
+            const stack = [startX + startY * w];
+            let filledCount = 0;
+            let bx1 = startX, by1 = startY, bx2 = startX, by2 = startY;
+            const tol = fillTolerance;
+            const hasSelection = hasActiveEditSelection();
 
             while (stack.length > 0) {
-                const [x, y] = stack.pop();
-                const key = `${x},${y}`;
+                const idx = stack.pop();
+                if (visited[idx]) continue;
 
-                if (visited.has(key) || x < 0 || y < 0 || x >= layer.canvas.width || y >= layer.canvas.height) {
-                    continue;
+                const x = idx % w, y = (idx / w) | 0;
+                if (hasSelection && !isPointSelected(x, y)) continue;
+
+                const i = idx * 4;
+                if (Math.abs(px[i] - tr) > tol || Math.abs(px[i+1] - tg) > tol ||
+                    Math.abs(px[i+2] - tb) > tol || Math.abs(px[i+3] - ta) > tol) continue;
+
+                visited[idx] = 1;
+
+                // Alpha-blend the fill color onto existing pixel
+                const srcA = fillA / 255;
+                const dstA = px[i+3] / 255;
+                const outA = srcA + dstA * (1 - srcA);
+                if (outA > 0) {
+                    px[i]   = Math.round((hex.r * srcA + px[i]   * dstA * (1 - srcA)) / outA);
+                    px[i+1] = Math.round((hex.g * srcA + px[i+1] * dstA * (1 - srcA)) / outA);
+                    px[i+2] = Math.round((hex.b * srcA + px[i+2] * dstA * (1 - srcA)) / outA);
+                    px[i+3] = Math.round(outA * 255);
+                } else {
+                    px[i] = hex.r; px[i+1] = hex.g; px[i+2] = hex.b; px[i+3] = 0;
                 }
 
-                if (hasActiveEditSelection() && !isPointSelected(x, y)) {
-                    continue;
-                }
+                filledCount++;
+                if (x < bx1) bx1 = x; if (y < by1) by1 = y;
+                if (x > bx2) bx2 = x; if (y > by2) by2 = y;
 
-                const currentColor = getPixelColor(data, x, y);
-
-                if (colorsMatch(currentColor, targetColor)) {
-                    setPixelColor(data, x, y, hex);
-                    visited.add(key);
-                    if (x < fillBx1) fillBx1 = x;
-                    if (y < fillBy1) fillBy1 = y;
-                    if (x > fillBx2) fillBx2 = x;
-                    if (y > fillBy2) fillBy2 = y;
-                    stack.push([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]);
-                }
+                if (x > 0)     stack.push(idx - 1);
+                if (x < w - 1) stack.push(idx + 1);
+                if (y > 0)     stack.push(idx - w);
+                if (y < h - 1) stack.push(idx + w);
             }
 
             layerCtx.putImageData(data, 0, 0);
 
-            if (visited.size > 0) {
+            if (filledCount > 0) {
                 if (!layer.strokes) layer.strokes = [];
                 layer.strokes.push({
-                    id: ++strokeIdCounter,
-                    tool: 'fill',
-                    color: fillColor,
-                    size: 1,
-                    opacity: 1,
-                    compositeOp: 'source-over',
+                    id: ++strokeIdCounter, tool: 'fill', color: fillColor,
+                    size: 1, opacity: opacity, compositeOp: 'source-over',
                     points: [{x: startX, y: startY}],
-                    bx1: fillBx1, by1: fillBy1, bx2: fillBx2 + 1, by2: fillBy2 + 1,
-                    selected: false
+                    bx1, by1, bx2: bx2 + 1, by2: by2 + 1, selected: false
                 });
             }
 
@@ -4806,6 +4933,12 @@
             const slider = document.getElementById('opacitySlider');
             opacity = slider.value / 100;
             document.getElementById('opacityDisplay').textContent = slider.value;
+        }
+
+        function updateFillTolerance() {
+            const slider = document.getElementById('toleranceSlider');
+            fillTolerance = parseInt(slider.value);
+            document.getElementById('toleranceDisplay').textContent = slider.value;
         }
 
         // Grid toggle
