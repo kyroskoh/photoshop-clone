@@ -2195,7 +2195,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.9.2</p>
+                    <p>Version 1.9.3</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2204,7 +2204,7 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
 
-                <p>New in v1.9.2: Move tool now applies only to the specifically selected layer element and keeps that element selected after move/transform commit.</p>
+                <p>New in v1.9.3: Selected-element moves now fully clear previous pixels on commit, canvas pointer mapping is accurate at zoom, and layers auto-expand when new elements are recorded.</p>
 
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
@@ -2972,6 +2972,7 @@
             addToHistory('New Document');
             updateLayerList();
             renderLayers();
+            requestAnimationFrame(() => fitToScreen());
             
             showNotification(`New document created: ${width} × ${height}`, 2000);
         }
@@ -3812,16 +3813,12 @@
         function getEventCoordinates(e) {
             const rect = canvas.getBoundingClientRect();
             let x, y;
+            const point = (e.touches && e.touches.length > 0) ? e.touches[0] : e;
             
-            if (e.touches && e.touches.length > 0) {
-                // Touch event
-                x = e.touches[0].clientX - rect.left;
-                y = e.touches[0].clientY - rect.top;
-            } else {
-                // Mouse event
-                x = e.clientX - rect.left;
-                y = e.clientY - rect.top;
-            }
+            // Map from rendered screen rect back to intrinsic canvas coordinates.
+            // This stays correct under zoom/pan/CSS transforms.
+            x = ((point.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
+            y = ((point.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height;
             
             return { x, y };
         }
@@ -4210,6 +4207,12 @@
             updateLayerList();
         }
 
+        function ensureLayerExpanded(layerIndex) {
+            const layer = layers[layerIndex];
+            if (!layer) return;
+            if (!layer.expanded) layer.expanded = true;
+        }
+
         function selectLayerElement(layerIndex, strokeId) {
             // Deselect all strokes on all layers
             layers.forEach(l => (l.strokes || []).forEach(s => s.selected = false));
@@ -4294,6 +4297,7 @@
                     if (!layer.strokes) layer.strokes = [];
                     layer.strokes.push(stroke);
                     currentStrokeId = stroke.id;
+                    ensureLayerExpanded(currentLayer);
                     updateLayerList();
                 } else if (currentStrokeId !== null) {
                     const stroke = (layer.strokes || []).find(s => s.id === currentStrokeId);
@@ -4325,6 +4329,7 @@
             };
             layer.strokes.push(stroke);
             currentStrokeId = stroke.id;
+            ensureLayerExpanded(currentLayer);
             updateLayerList();
             sprayX = x; sprayY = y;
             if (sprayInterval) clearInterval(sprayInterval);
@@ -4456,6 +4461,7 @@
                 bx1: x1, by1: y1, bx2: x2, by2: y2, selected: false
             });
             shapeStart = null; shapeEnd = null;
+            ensureLayerExpanded(currentLayer);
             updateLayerList();
             renderLayers();
         }
@@ -4964,6 +4970,7 @@
                     points: [{x: startX, y: startY}],
                     bx1, by1, bx2: bx2 + 1, by2: by2 + 1, selected: false
                 });
+                ensureLayerExpanded(currentLayer);
                 updateLayerList();
             }
 
@@ -5048,6 +5055,7 @@
                     by2: y,
                     selected: false
                 });
+                ensureLayerExpanded(currentLayer);
                 updateLayerList();
                 renderLayers();
                 addToHistory('Text Added');
@@ -5683,6 +5691,10 @@
         }
 
         // Zoom and Pan
+        function applyCanvasTransform() {
+            canvasWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+        }
+
         function updateZoom() {
             const slider = document.getElementById('zoomSlider');
             zoom = slider.value / 100;
@@ -5690,7 +5702,7 @@
             document.getElementById('zoomDisplay').textContent = slider.value;
             document.getElementById('statusZoom').textContent = slider.value + '%';
             
-            canvasWrapper.style.transform = `scale(${zoom})`;
+            applyCanvasTransform();
             requestAnimationFrame(() => { drawRulers(); drawGuides(); });
         }
 
@@ -5716,7 +5728,7 @@
             if (deltaX !== 0 || deltaY !== 0) {
                 panX += deltaX;
                 panY += deltaY;
-                canvasWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+                applyCanvasTransform();
             }
         }
 
@@ -5737,6 +5749,8 @@
             const scaleX = (container.clientWidth - 40) / canvas.width;
             const scaleY = (container.clientHeight - 40) / canvas.height;
             const newZoom = Math.min(scaleX, scaleY, 1);
+            panX = 0;
+            panY = 0;
             
             document.getElementById('zoomSlider').value = newZoom * 100;
             updateZoom();
@@ -6232,6 +6246,7 @@
                         addToHistory('Image Loaded');
                         updateLayerList();
                         renderLayers();
+                        requestAnimationFrame(() => fitToScreen());
                         saveEditorState();
                     };
                     img.src = e.target.result;
@@ -7934,18 +7949,23 @@
             const b = floating.bounds;
             const vectorStrokes = Array.isArray(floating.vectorStrokes) ? floating.vectorStrokes : null;
 
-            layerCtx.save();
-            const cx = b.x + b.width / 2 + floating.tx;
-            const cy = b.y + b.height / 2 + floating.ty;
-            layerCtx.translate(cx, cy);
-            layerCtx.rotate(floating.rotation);
-            layerCtx.scale(floating.scaleX, floating.scaleY);
-            layerCtx.drawImage(
-                floating.canvas,
-                -cx,
-                -cy
-            );
-            layerCtx.restore();
+            // For pixel-only floating selections, commit by drawing the transformed raster.
+            // For vector selections, we rebuild from transformed stroke metadata to avoid
+            // any lingering previous pixels after mouseup.
+            if (!vectorStrokes) {
+                layerCtx.save();
+                const cx = b.x + b.width / 2 + floating.tx;
+                const cy = b.y + b.height / 2 + floating.ty;
+                layerCtx.translate(cx, cy);
+                layerCtx.rotate(floating.rotation);
+                layerCtx.scale(floating.scaleX, floating.scaleY);
+                layerCtx.drawImage(
+                    floating.canvas,
+                    -cx,
+                    -cy
+                );
+                layerCtx.restore();
+            }
 
             floatingSelection = null;
             clearSelectionState();
@@ -7962,6 +7982,8 @@
                     );
                     return { ...s, selected: isSelectedElement };
                 }));
+                layerCtx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+                layer.strokes.forEach(s => renderStrokeToContext(layerCtx, s));
             }
             renderLayers();
             updateLayerList();
@@ -8881,3 +8903,4 @@
     </script>
 </body>
 </html>
+

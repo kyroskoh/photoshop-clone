@@ -5,6 +5,15 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.3] - 2026-05-21
+
+### Fixed
+- **Selected-element move commit cleanup** — when moving a selected layer element, previous drawn pixels are now fully cleared on mouseup commit.
+- **Canvas coordinate precision under zoom** — tool drawing/interaction coordinates now map correctly to intrinsic canvas `x,y` under zoom/transforms.
+
+### Changed
+- **Layer element list auto-expand** — layers now automatically expand when a new element is created/recorded in that layer.
+
 ## [1.9.2] - 2026-05-21
 
 ### Fixed
@@ -379,6 +388,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.9.3** - Selected-element move commit cleanup, corrected canvas coordinate mapping at zoom, and auto-expand layer on new element creation
 - **v1.9.2** - Move tool now strictly targets the selected layer element and preserves selection after commit
 - **v1.9.1** - Layer element list auto-refresh on create; history newest-first; selected-element move keeps registered coordinates synced; improved transformed text bounds
 - **v1.9.0** - Cursor ring for shape tools; ruler guides; layer content move; expandable layer element list with per-element select/rename/move
