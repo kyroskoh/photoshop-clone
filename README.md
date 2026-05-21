@@ -4,7 +4,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 **🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
 
-![ProPhoto Editor](https://img.shields.io/badge/version-1.5.4-blue.svg)
+![ProPhoto Editor](https://img.shields.io/badge/version-1.5.5-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
@@ -54,7 +54,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Zoom Controls** - Zoom from 10% to 500%
 - **Grid Overlay** - Toggle grid for precise alignment
 - **Color Palette** - 32 predefined colors + custom color picker
-- **Export Options** - Save as PNG, JPEG, WebP, BMP, GIF, AVIF, TIFF, or SVG
+- **Export Options** - Save as PNG, JPEG, WebP, BMP, GIF, AVIF, TIFF, SVG, or WebM (animated)
 - **Project Management** - Save and load projects in custom .prophoto format
 - **Auto-Save** - Automatic session state saving to localStorage (resume work later)
 - **Unsaved Changes Indicator** - Visual indicator (*) shows when project has unsaved changes
@@ -184,6 +184,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Export / Save As ▶** (flyout submenu)
   - *With background* — JPEG, BMP, GIF, TIFF
   - *Supports transparency* — PNG, WebP, AVIF, SVG
+  - *Video (3 s)* — WebM (cycles through layers, 500 ms per frame)
 
 ### Edit Menu
 - **Undo** - Revert last action

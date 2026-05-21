@@ -5,6 +5,17 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2026-05-20
+
+### Added
+- **WebM export** (restored from contributor commit 68d4e49 by a2937) — File → Export/Save As → Export as WebM... records a 3-second animation cycling through layers at 500 ms per frame and downloads as `<name>.webm`.
+
+### Fixed
+- **Magic wand hang** — replaced the `Set<string>` visited tracker (`'x,y'` key per pixel) with a `Uint8Array` flat bitmask and a pre-allocated `Int32Array` stack. Eliminates all string allocation in the hot flood-fill loop; an 800×600 canvas that previously froze the browser now completes in milliseconds.
+- **Magic wand selects the correct object** — the flood fill now composites all visible layers into a temporary canvas before sampling, so clicking on a painted stroke selects the stroke's pixels rather than the transparent background underneath it.
+- **localStorage quota exceeded** — `historyStates` (up to 20 full canvas PNG snapshots × N layers ≈ 6–12 MB) was being written to localStorage on every action, reliably blowing the 5 MB browser quota. Canvas snapshots now live in memory only; only the small action-name list is persisted. Undo/redo works normally within a session and resets on page reload (standard behaviour).
+- **WebM export broken** — `redrawCanvas()` (non-existent) replaced with `renderLayers()`; layer cycling slowed from 60 fps to 500 ms per frame for legible output; `MediaRecorder.start(100)` timeslice ensures data is collected during recording rather than only at stop; `captureStream(30)` sets a stable frame rate.
+
 ## [1.5.4] - 2026-05-20
 
 ### Added
@@ -275,6 +286,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.5.5** - WebM export restored & fixed; magic wand performance (Uint8Array bitmask, no browser hang); wand samples composite canvas; localStorage quota fix (historyStates removed from auto-save)
 - **v1.5.4** - Export with Transparency (PNG); flyout Export/Save As submenu grouped by transparency support
 - **v1.5.3** - Shortcut keys in tool tooltips; all 8 export formats (PNG/JPEG/WebP/BMP/GIF/AVIF/TIFF/SVG); fixed inline text editor; clean shape tooltips
 - **v1.5.2** - Inline text editor on canvas; zoom tool added; keyboard shortcuts blocked during text editing
