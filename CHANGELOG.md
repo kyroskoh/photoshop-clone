@@ -5,6 +5,29 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-05-21
+
+### Added
+- **Elliptical Marquee tool** — drag to select oval/elliptical areas; Shift=perfect circle; supports all combination modes (Add/Subtract/Intersect); marching ants trace the actual ellipse curve; shortcut `Shift+M`
+- **Polygonal Lasso tool** — click to place polygon vertices; double-click or click near start (< 10 px) to close; rubber-band preview line tracks cursor while placing points; Escape cancels mid-polygon; shortcut `Shift+L`
+- **Filled shapes** — "Fill Shape" checkbox appears in the toolbar when rectangle or ellipse is selected; draws a solid fill instead of stroke-only outline
+- **Noise filter** — adds uniform random color noise to the current layer; available in Filter menu and side panel
+- **Emboss filter** — classic emboss convolution kernel producing a 3-D relief effect
+- **Edge Detect filter** — Laplacian edge detection that highlights outlines and contrast boundaries
+- **Vignette filter** — applies a smooth radial darkening toward the corners of the canvas
+- **Categorised tool panel** — tools are now grouped under labeled sections (Nav, Select, Paint, Shape, Utility) with dividers for faster scanning
+- **Improved tool icons** — all tool panel icons updated to clearer, more Photoshop-like SVG shapes
+
+### Changed
+- Keyboard shortcut `M` still selects rectangular marquee; `Shift+M` now selects elliptical marquee
+- Keyboard shortcut `L` still selects freehand lasso; `Shift+L` now selects polygonal lasso
+- Zoom tool moved to the Navigation group at the top of the tool panel
+
+## [1.7.1] - 2026-05-21
+
+### Fixed
+- Editing tools (brush, pencil, fill, eraser, spray, text, etc.) can now be selected at any time when a selection tool is active — switching to a drawing tool silently keeps the active selection in place (Photoshop behavior). Previously, a "Deselect / Keep Selection" modal blocked tool switching entirely.
+
 ## [1.7.0] - 2026-05-21
 
 ### Added

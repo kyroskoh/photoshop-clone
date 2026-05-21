@@ -704,6 +704,29 @@
             fill: currentColor;
         }
 
+        .tool-group-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #666;
+            text-align: center;
+            padding: 4px 0 2px;
+            user-select: none;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .tool-group-divider {
+            height: 1px;
+            background: #3a3a3a;
+            margin: 3px 6px;
+        }
+
+        .tool-panel.collapsed .tool-group-label,
+        .tool-panel.collapsed .tool-group-divider {
+            display: none;
+        }
+
         /* Tool panel scrollbar */
         .tool-panel::-webkit-scrollbar {
             width: 4px;
@@ -1715,6 +1738,11 @@
                     <div class="dropdown-divider"></div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); invertColors(); hideAllDropdowns();">Invert Colors</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); applySepia(); hideAllDropdowns();">Sepia</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyFilter('noise'); hideAllDropdowns();">Noise</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyFilter('emboss'); hideAllDropdowns();">Emboss</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyFilter('edgeDetect'); hideAllDropdowns();">Edge Detect</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyFilter('vignette'); hideAllDropdowns();">Vignette</div>
                 </div>
             </div>
             <div class="menu-separator"></div>
@@ -1824,6 +1852,11 @@
                     <input type="checkbox" id="wandContiguous" checked onchange="updateWandContiguous()" style="cursor:pointer;">Contiguous
                 </label>
             </div>
+            <div class="control-group" id="shapeOptionsGroup" style="display:none;">
+                <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#bbb;cursor:pointer;" title="Fill shape with foreground color instead of stroke">
+                    <input type="checkbox" id="shapeFilledToggle" onchange="updateShapeFilled()" style="cursor:pointer;"> Fill Shape
+                </label>
+            </div>
 
             <div class="control-group">
                 <span class="control-label" title="Canvas Zoom Level">Zoom:</span>
@@ -1844,59 +1877,11 @@
                 </div>
             </div>
             <div class="tool-panel-content" id="toolPanelContent">
+                <!-- Navigation -->
+                <div class="tool-group-label">Nav</div>
                 <button class="tool-panel-button active" id="moveTool" onclick="selectTool('move')" title="Move [V]">
                     <div class="icon">
-                        <svg viewBox="0 0 24 24"><path d="M12 2L8 6h3v4H5l4 4V10h4l-2 2h-2v4H8l-2 2h4l4-4h-3v-4h6l-4-4v-2h2l2-2H8l4-4z"/></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="marqueeTool" onclick="selectTool('marquee')" title="Rectangular Marquee [M]">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"/></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="lassoTool" onclick="selectTool('lasso')" title="Lasso [L]">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><path d="M8 2L6 8l4 2L8 12l-4 4 6 2 4-6 2-2L12 8z" fill="currentColor"/></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="magicWandTool" onclick="selectTool('magicWand')" title="Magic Wand [W]">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><path d="M12 2L8 6h3l2 2-2 2-2 2h3l2 2-2 2-3 3-3-3-3 3-3-3 3-3-2-2 2-2-2-2 2-2 3 3z" fill="currentColor"/></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="brushTool" onclick="selectTool('brush')" title="Brush [B]">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3" fill="currentColor"/><rect x="14" y="14" width="6" height="2" fill="currentColor"/></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="pencilTool" onclick="selectTool('pencil')" title="Pencil [P]">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><rect x="3" y="15" width="8" height="4" fill="currentColor"/><rect x="11" y="13" width="10" height="2" fill="currentColor"/></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="eraserTool" onclick="selectTool('eraser')" title="Eraser [E]">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><path d="M16.24 3.56L15.77 3.09L14.24 4.62L14.71 5.09L16.24 3.56M21.9 2.34L21.66 1.1L20.5 1.1L21.84 2.44L21.9 2.34" fill="currentColor"/></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="sprayTool" onclick="selectTool('spray')" title="Spray / Airbrush [A]">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="6" fill="currentColor" opacity="0.3"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="textTool" onclick="selectTool('text')" title="Text [T] — Click canvas to type">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor">A</text></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="fillTool" onclick="selectTool('fill')" title="Fill / Paint Bucket [G]">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><path d="M12 2L4 14h16L12 2zM8 18l-4 6h16l-4-6H8z" fill="currentColor"/></svg>
-                    </div>
-                </button>
-                <button class="tool-panel-button" id="cropTool" onclick="selectTool('crop')" title="Crop [C]">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="4" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="4" y="14" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="14" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                        <svg viewBox="0 0 24 24"><path d="M12 3l-3 3h2v3H8V7l-3 3 3 3v-2h3v3h-2l3 3 3-3h-2v-3h3v2l3-3-3-3v2h-3V9h2z" fill="currentColor"/></svg>
                     </div>
                 </button>
                 <button class="tool-panel-button" id="zoomTool" onclick="selectTool('zoom')" title="Zoom Tool [Z] (Click=in, Alt+Click=out)">
@@ -1904,19 +1889,95 @@
                         <svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="2" fill="none"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="10" y1="7" x2="10" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                     </div>
                 </button>
+
+                <!-- Selection -->
+                <div class="tool-group-divider"></div>
+                <div class="tool-group-label">Select</div>
+                <button class="tool-panel-button" id="marqueeTool" onclick="selectTool('marquee')" title="Rectangular Marquee [M]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="4 2"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="ellipticalMarqueeTool" onclick="selectTool('ellipticalMarquee')" title="Elliptical Marquee [Shift+M]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="7" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="4 2"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="lassoTool" onclick="selectTool('lasso')" title="Freehand Lasso [L]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><path d="M12 5 C6 5 3 8 3 12 C3 16 6 19 12 19 C16 19 19 17 20 14 L14 12 L16 8 Z" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="3 2"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="polygonalLassoTool" onclick="selectTool('polygonalLasso')" title="Polygonal Lasso [Shift+L]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><polygon points="12,3 21,9 18,20 6,20 3,9" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="3 2"/><circle cx="12" cy="3" r="1.5" fill="currentColor"/><circle cx="21" cy="9" r="1.5" fill="currentColor"/><circle cx="18" cy="20" r="1.5" fill="currentColor"/><circle cx="6" cy="20" r="1.5" fill="currentColor"/><circle cx="3" cy="9" r="1.5" fill="currentColor"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="magicWandTool" onclick="selectTool('magicWand')" title="Magic Wand [W]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><line x1="3" y1="21" x2="13" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" fill="currentColor"/><path d="M19 8l0.7 1.3 1.3 0.7-1.3 0.7L19 12l-0.7-1.3L17 10l1.3-0.7z" fill="currentColor" opacity="0.7"/><path d="M8 4l0.5 1 1 0.5-1 0.5L8 7l-0.5-1L6.5 5.5l1-0.5z" fill="currentColor" opacity="0.5"/></svg>
+                    </div>
+                </button>
+
+                <!-- Painting -->
+                <div class="tool-group-divider"></div>
+                <div class="tool-group-label">Paint</div>
+                <button class="tool-panel-button" id="brushTool" onclick="selectTool('brush')" title="Brush [B]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><path d="M20.71 4.63l-1.34-1.34a1 1 0 0 0-1.41 0L9 12.25 11.75 15l8.96-8.96a1 1 0 0 0 0-1.41z" fill="currentColor"/><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3z" fill="currentColor"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="pencilTool" onclick="selectTool('pencil')" title="Pencil [P]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="eraserTool" onclick="selectTool('eraser')" title="Eraser [E]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><path d="M16.24 3.56l4.2 4.2c.78.78.78 2.05 0 2.83L12 19.03 4.97 12l7.44-7.44c.79-.78 2.06-.78 2.83-.01zM5 18h14v2H5z" fill="currentColor"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="sprayTool" onclick="selectTool('spray')" title="Spray / Airbrush [A]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="5" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/><rect x="13" y="6" width="5" height="2" rx="1" fill="currentColor"/><circle cx="7" cy="17" r="1" fill="currentColor" opacity="0.5"/><circle cx="12" cy="16" r="1" fill="currentColor" opacity="0.7"/><circle cx="17" cy="17" r="1" fill="currentColor" opacity="0.5"/><circle cx="9" cy="20" r="1" fill="currentColor" opacity="0.4"/><circle cx="14" cy="21" r="1" fill="currentColor" opacity="0.4"/><circle cx="11" cy="14" r="1" fill="currentColor"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="fillTool" onclick="selectTool('fill')" title="Fill / Paint Bucket [G]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15a1.49 1.49 0 0 0 0 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z" fill="currentColor"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="textTool" onclick="selectTool('text')" title="Text [T] — Click canvas to type">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4z" fill="currentColor"/></svg>
+                    </div>
+                </button>
+
+                <!-- Shapes -->
+                <div class="tool-group-divider"></div>
+                <div class="tool-group-label">Shape</div>
                 <button class="tool-panel-button" id="lineTool" onclick="selectTool('line')" title="Line [\]">
                     <div class="icon">
-                        <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
                     </div>
                 </button>
                 <button class="tool-panel-button" id="rectangleTool" onclick="selectTool('rectangle')" title="Rectangle [R]">
                     <div class="icon">
-                        <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" stroke="currentColor" stroke-width="2" fill="none" rx="1"/></svg>
+                        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" stroke="currentColor" stroke-width="2" fill="none" rx="1"/></svg>
                     </div>
                 </button>
                 <button class="tool-panel-button" id="ellipseTool" onclick="selectTool('ellipse')" title="Ellipse [O]">
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="6" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    </div>
+                </button>
+
+                <!-- Utility -->
+                <div class="tool-group-divider"></div>
+                <div class="tool-group-label">Utility</div>
+                <button class="tool-panel-button" id="cropTool" onclick="selectTool('crop')" title="Crop [C]">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><path d="M17 15H7V5H5v10a2 2 0 0 0 2 2h10v-2zM7 7H5V5h2v2zm12 10h-2V7a2 2 0 0 0-2-2H7v2h10v10h2v2h2v-2z" fill="currentColor"/></svg>
                     </div>
                 </button>
             </div>
@@ -2018,6 +2079,10 @@
                         <button class="tool-button" onclick="applyFilter('grayscale')">Grayscale</button>
                         <button class="tool-button" onclick="invertColors()">Invert Colors</button>
                         <button class="tool-button" onclick="applySepia()">Sepia</button>
+                        <button class="tool-button" onclick="applyFilter('noise')">Noise</button>
+                        <button class="tool-button" onclick="applyFilter('emboss')">Emboss</button>
+                        <button class="tool-button" onclick="applyFilter('edgeDetect')">Edge Detect</button>
+                        <button class="tool-button" onclick="applyFilter('vignette')">Vignette</button>
                     </div>
                 </div>
             </div>
@@ -2082,7 +2147,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.7.0</p>
+                    <p>Version 1.8.0</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2281,24 +2346,31 @@
         let savedMaskForCombine = null;    // existing mask snapshot saved at selection start for combine ops
         let wandDrawSaveData = null;       // ImageData snapshot at brush stroke start (magic wand masking)
         let magicWandContiguous = true;    // contiguous vs non-contiguous wand mode
+        let polygonalLassoActive = false;  // true while polygonal lasso is mid-creation
+        let polygonalLassoPoints = [];     // placed vertices
+        let polygonalLassoPreviewPoint = null; // cursor pos for rubber-band preview
+        let lastPolygonalLassoClickTime = 0;   // timestamp for double-click detection
+        let shapeFilled = false;           // whether rectangle/ellipse shapes are filled
 
         // Per-tool settings memory (size and opacity remembered per tool)
         const toolSettings = {
-            move:      { size: 10, opacity: 100 },
-            marquee:   { size: 10, opacity: 100 },
-            lasso:     { size: 10, opacity: 100 },
-            magicWand: { size: 10, opacity: 100 },
-            brush:     { size: 10, opacity: 100 },
-            pencil:    { size: 2,  opacity: 100 },
-            eraser:    { size: 20, opacity: 100 },
-            spray:     { size: 20, opacity: 80  },
-            text:      { size: 24, opacity: 100 },
-            fill:      { size: 10, opacity: 100 },
-            crop:      { size: 10, opacity: 100 },
-            zoom:      { size: 10, opacity: 100 },
-            line:      { size: 2,  opacity: 100 },
-            rectangle: { size: 2,  opacity: 100 },
-            ellipse:   { size: 2,  opacity: 100 },
+            move:             { size: 10, opacity: 100 },
+            marquee:          { size: 10, opacity: 100 },
+            ellipticalMarquee:{ size: 10, opacity: 100 },
+            lasso:            { size: 10, opacity: 100 },
+            polygonalLasso:   { size: 10, opacity: 100 },
+            magicWand:        { size: 10, opacity: 100 },
+            brush:            { size: 10, opacity: 100 },
+            pencil:           { size: 2,  opacity: 100 },
+            eraser:           { size: 20, opacity: 100 },
+            spray:            { size: 20, opacity: 80  },
+            text:             { size: 24, opacity: 100 },
+            fill:             { size: 10, opacity: 100 },
+            crop:             { size: 10, opacity: 100 },
+            zoom:             { size: 10, opacity: 100 },
+            line:             { size: 2,  opacity: 100 },
+            rectangle:        { size: 2,  opacity: 100 },
+            ellipse:          { size: 2,  opacity: 100 },
         };
         let cropArea = null;
         let cropInteractionMode = null;
@@ -3697,12 +3769,24 @@
                 // Border-drag only in 'new' mode; combine modes always draw a new selection
                 const mbMoved = selectionOp === 'new' && tryStartSelectionBorderMove(x, y);
                 if (!mbMoved) startMarquee(x, y);
+            } else if (currentTool === 'ellipticalMarquee') {
+                if (e.shiftKey && e.altKey) setSelectionOp('intersect');
+                else if (e.shiftKey) setSelectionOp('add');
+                else if (e.altKey) setSelectionOp('subtract');
+                const embMoved = selectionOp === 'new' && tryStartSelectionBorderMove(x, y);
+                if (!embMoved) startEllipticalMarquee(x, y);
             } else if (currentTool === 'lasso') {
                 if (e.shiftKey && e.altKey) setSelectionOp('intersect');
                 else if (e.shiftKey) setSelectionOp('add');
                 else if (e.altKey) setSelectionOp('subtract');
                 const lbMoved = selectionOp === 'new' && tryStartSelectionBorderMove(x, y);
                 if (!lbMoved) startLasso(x, y);
+            } else if (currentTool === 'polygonalLasso') {
+                if (e.shiftKey && e.altKey) setSelectionOp('intersect');
+                else if (e.shiftKey) setSelectionOp('add');
+                else if (e.altKey) setSelectionOp('subtract');
+                handlePolygonalLassoClick(x, y);
+                isDrawing = false; // polygonal lasso is click-based, not drag-based
             } else if (currentTool === 'magicWand') {
                 if (e.shiftKey && e.altKey) setSelectionOp('intersect');
                 else if (e.shiftKey) setSelectionOp('add');
@@ -3728,7 +3812,13 @@
         function handlePointerMove(e, x, y) {
             // Update position display
             document.getElementById('mousePosition').textContent = `${Math.round(x)}, ${Math.round(y)}`;
-            
+
+            // Polygonal lasso rubber-band: update preview even when mouse button is up
+            if (currentTool === 'polygonalLasso' && polygonalLassoActive) {
+                polygonalLassoPreviewPoint = {x, y};
+                renderLayers();
+            }
+
             if (!isDrawing) return;
             
             endX = x;
@@ -3747,6 +3837,10 @@
                 if (selectionBorderDrag) updateSelectionBorderMove(x, y);
                 else if (moveInteraction) updateMoveInteraction(x, y, e);
                 else updateMarquee(x, y, e.shiftKey);
+            } else if (currentTool === 'ellipticalMarquee') {
+                if (selectionBorderDrag) updateSelectionBorderMove(x, y);
+                else if (moveInteraction) updateMoveInteraction(x, y, e);
+                else updateEllipticalMarquee(x, y, e.shiftKey);
             } else if (currentTool === 'lasso') {
                 if (selectionBorderDrag) updateSelectionBorderMove(x, y);
                 else if (moveInteraction) updateMoveInteraction(x, y, e);
@@ -3781,6 +3875,10 @@
                     if (selectionBorderDrag) { endSelectionBorderMove(); didSelectionMove = true; }
                     else if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
                     else endMarquee();
+                } else if (currentTool === 'ellipticalMarquee') {
+                    if (selectionBorderDrag) { endSelectionBorderMove(); didSelectionMove = true; }
+                    else if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
+                    else endEllipticalMarquee();
                 } else if (currentTool === 'lasso') {
                     if (selectionBorderDrag) { endSelectionBorderMove(); didSelectionMove = true; }
                     else if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
@@ -3880,19 +3978,6 @@
 
         // Select tool
         function selectTool(tool) {
-            // If there's an active pixel selection and we're switching to a drawing tool, prompt
-            const selectionTools = ['marquee', 'lasso', 'magicWand'];
-            const drawingTools   = ['brush', 'pencil', 'eraser', 'spray', 'text', 'fill',
-                                    'line', 'rectangle', 'ellipse', 'zoom', 'crop'];
-            if (selectionTools.includes(currentTool) && drawingTools.includes(tool) && hasActiveEditSelection()) {
-                if (skipSelectionModal) {
-                    skipSelectionModal = false; // consume the bypass flag and fall through
-                } else {
-                    pendingToolSwitch = tool;
-                    document.getElementById('deselectModal').style.display = 'flex';
-                    return;
-                }
-            }
             if (currentTool === 'move' && floatingSelection && tool !== 'move') {
                 if (commitFloatingSelection()) {
                     addToHistory('Transform Selection');
@@ -3902,6 +3987,15 @@
             shapeStart = null;
             shapeEnd = null;
             commitTextEdit(); // commit any in-progress inline text before switching
+
+            // Cancel in-progress polygonal lasso when switching to another tool
+            if (polygonalLassoActive && tool !== 'polygonalLasso') {
+                polygonalLassoActive = false;
+                polygonalLassoPoints = [];
+                polygonalLassoPreviewPoint = null;
+                if (selectionOp === 'new') clearSelectionState();
+                renderLayers();
+            }
 
             // Save current tool's size/opacity before switching
             if (toolSettings[currentTool]) {
@@ -3939,14 +4033,17 @@
 
             // Show tolerance slider only for fill tool
             document.getElementById('toleranceGroup').style.display = (tool === 'fill') ? '' : 'none';
-            // Show selection operation mode buttons for selection tools
-            const isSelectionTool = ['marquee', 'lasso', 'magicWand'].includes(tool);
+            // Show selection operation mode buttons for all selection tools
+            const isSelectionTool = ['marquee', 'ellipticalMarquee', 'lasso', 'polygonalLasso', 'magicWand'].includes(tool);
             document.getElementById('selectionOpGroup').style.display = isSelectionTool ? '' : 'none';
             // Show magic wand options only for magic wand
             document.getElementById('wandOptionsGroup').style.display = (tool === 'magicWand') ? '' : 'none';
+            // Show fill toggle for shape tools that can be filled
+            document.getElementById('shapeOptionsGroup').style.display = ['rectangle', 'ellipse'].includes(tool) ? '' : 'none';
 
             // Update status
-            document.getElementById('currentTool').textContent = tool.charAt(0).toUpperCase() + tool.slice(1);
+            const toolDisplayNames = { ellipticalMarquee: 'Elliptical Marquee', polygonalLasso: 'Polygonal Lasso', magicWand: 'Magic Wand' };
+            document.getElementById('currentTool').textContent = toolDisplayNames[tool] || (tool.charAt(0).toUpperCase() + tool.slice(1));
         }
 
         // Use brush/pencil/eraser/spray
@@ -4138,13 +4235,16 @@
             } else if (currentTool === 'rectangle') {
                 const x = Math.min(start.x, end.x), y = Math.min(start.y, end.y);
                 const w = Math.abs(end.x - start.x), h = Math.abs(end.y - start.y);
-                ctx.strokeRect(x, y, w, h);
+                ctx.rect(x, y, w, h);
+                if (shapeFilled) { ctx.fillStyle = primaryColor; ctx.fill(); }
+                else ctx.stroke();
             } else if (currentTool === 'ellipse') {
                 const cx = (start.x + end.x) / 2, cy = (start.y + end.y) / 2;
                 const rx = Math.abs(end.x - start.x) / 2, ry = Math.abs(end.y - start.y) / 2;
                 if (rx > 0 && ry > 0) {
                     ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-                    ctx.stroke();
+                    if (shapeFilled) { ctx.fillStyle = primaryColor; ctx.fill(); }
+                    else ctx.stroke();
                 }
             }
             ctx.restore();
@@ -4270,6 +4370,142 @@
                 updateSelectionDisplay();
             }
             addToHistory('Lasso Selection');
+        }
+
+        // ── Elliptical Marquee ──────────────────────────────────────────────
+        function startEllipticalMarquee(x, y) {
+            savedMaskForCombine = (selectionOp !== 'new') ? getSelectionMaskForCombine(canvas.width, canvas.height) : null;
+            selectionMode = 'ellipticalMarquee';
+            selectedPixelSet = null;
+            selectedArea = {x1: x, y1: y, x2: x, y2: y};
+            updateSelectionDisplay();
+        }
+
+        function updateEllipticalMarquee(x, y, shiftKey) {
+            if (shiftKey && selectionOp === 'new') {
+                const dx = x - selectedArea.x1;
+                const dy = y - selectedArea.y1;
+                const side = Math.min(Math.abs(dx), Math.abs(dy));
+                x = selectedArea.x1 + Math.sign(dx) * side;
+                y = selectedArea.y1 + Math.sign(dy) * side;
+            }
+            selectedArea.x2 = x;
+            selectedArea.y2 = y;
+            updateSelectionDisplay();
+        }
+
+        function endEllipticalMarquee() {
+            const mw = Math.abs(selectedArea.x2 - selectedArea.x1);
+            const mh = Math.abs(selectedArea.y2 - selectedArea.y1);
+            if (mw < 1 || mh < 1) {
+                if (selectionOp === 'new') { clearSelectionState(); updateSelectionDisplay(); }
+                return;
+            }
+            const cw = canvas.width, ch = canvas.height;
+            const cx = (selectedArea.x1 + selectedArea.x2) / 2;
+            const cy = (selectedArea.y1 + selectedArea.y2) / 2;
+            const rx = mw / 2, ry = mh / 2;
+            // Build ellipse pixel mask via offscreen canvas
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = cw; tempCanvas.height = ch;
+            const tctx = tempCanvas.getContext('2d');
+            tctx.fillStyle = 'white';
+            tctx.beginPath();
+            tctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            tctx.fill();
+            const imgData = tctx.getImageData(0, 0, cw, ch);
+            const newMask = new Uint8Array(cw * ch);
+            for (let i = 0; i < cw * ch; i++) newMask[i] = imgData.data[i * 4 + 3] > 0 ? 1 : 0;
+            if (selectionOp !== 'new') {
+                applyMaskSelection(combineSelectionMasks(savedMaskForCombine, newMask, selectionOp, cw, ch), cw, ch);
+                savedMaskForCombine = null;
+            } else {
+                // Keep ellipticalMarquee mode so overlay draws an ellipse, not bounding box
+                selectedPixelSet = { mask: newMask, w: cw, h: ch };
+                rebuildSelectionMask();
+                detectStrokesInSelection();
+                updateSelectionDisplay();
+            }
+            addToHistory('Ellipse Selection');
+        }
+
+        // ── Polygonal Lasso ─────────────────────────────────────────────────
+        function handlePolygonalLassoClick(x, y) {
+            const now = Date.now();
+            const isDoubleClick = polygonalLassoActive && (now - lastPolygonalLassoClickTime) < 300;
+            lastPolygonalLassoClickTime = now;
+
+            if (!polygonalLassoActive) {
+                savedMaskForCombine = (selectionOp !== 'new') ? getSelectionMaskForCombine(canvas.width, canvas.height) : null;
+                polygonalLassoPoints = [{x, y}];
+                polygonalLassoActive = true;
+                polygonalLassoPreviewPoint = {x, y};
+                selectionMode = 'polygonalLasso';
+                selectedPixelSet = null;
+                selectedArea = polygonalLassoPoints.slice();
+                updateSelectionDisplay();
+                return;
+            }
+
+            if (isDoubleClick) {
+                endPolygonalLasso();
+                return;
+            }
+
+            // Close if clicking near the first point (within 10px) and we have >= 3 points
+            const start = polygonalLassoPoints[0];
+            const dist = Math.hypot(x - start.x, y - start.y);
+            if (dist < 10 && polygonalLassoPoints.length >= 3) {
+                endPolygonalLasso();
+                return;
+            }
+
+            polygonalLassoPoints.push({x, y});
+            selectedArea = polygonalLassoPoints.slice();
+            updateSelectionDisplay();
+        }
+
+        function endPolygonalLasso() {
+            polygonalLassoActive = false;
+            polygonalLassoPreviewPoint = null;
+
+            if (polygonalLassoPoints.length < 3) {
+                if (selectionOp === 'new') { clearSelectionState(); updateSelectionDisplay(); }
+                return;
+            }
+
+            const firstPt = polygonalLassoPoints[0];
+            polygonalLassoPoints.push({x: firstPt.x, y: firstPt.y});
+            selectedArea = polygonalLassoPoints.slice();
+
+            if (selectionOp !== 'new') {
+                const cw = canvas.width, ch = canvas.height;
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = cw; tempCanvas.height = ch;
+                const tctx = tempCanvas.getContext('2d');
+                tctx.fillStyle = 'white';
+                tctx.beginPath();
+                tctx.moveTo(polygonalLassoPoints[0].x, polygonalLassoPoints[0].y);
+                for (let i = 1; i < polygonalLassoPoints.length; i++) tctx.lineTo(polygonalLassoPoints[i].x, polygonalLassoPoints[i].y);
+                tctx.closePath();
+                tctx.fill();
+                const imgData = tctx.getImageData(0, 0, cw, ch);
+                const newMask = new Uint8Array(cw * ch);
+                for (let i = 0; i < cw * ch; i++) newMask[i] = imgData.data[i * 4 + 3] > 0 ? 1 : 0;
+                applyMaskSelection(combineSelectionMasks(savedMaskForCombine, newMask, selectionOp, cw, ch), cw, ch);
+                savedMaskForCombine = null;
+            } else {
+                selectionMode = 'lasso'; // reuse lasso rendering for finalized polygon
+                rebuildSelectionMask();
+                detectStrokesInSelection();
+                updateSelectionDisplay();
+            }
+            addToHistory('Polygonal Lasso Selection');
+        }
+
+        // ── Filled Shapes ───────────────────────────────────────────────────
+        function updateShapeFilled() {
+            shapeFilled = document.getElementById('shapeFilledToggle').checked;
         }
 
         function normalizeCropRect(rect) {
@@ -5420,8 +5656,75 @@
                         }
                     }
                     break;
+
+                case 'noise': {
+                    const amt = 40;
+                    for (let i = 0; i < data.length; i += 4) {
+                        const n = (Math.random() - 0.5) * amt;
+                        data[i]   = Math.max(0, Math.min(255, data[i]   + n));
+                        data[i+1] = Math.max(0, Math.min(255, data[i+1] + n));
+                        data[i+2] = Math.max(0, Math.min(255, data[i+2] + n));
+                    }
+                    break;
+                }
+
+                case 'emboss': {
+                    const ew = layer.canvas.width, eh = layer.canvas.height;
+                    const eData = new Uint8ClampedArray(data);
+                    for (let y = 1; y < eh - 1; y++) {
+                        for (let x = 1; x < ew - 1; x++) {
+                            const idx = (y * ew + x) * 4;
+                            for (let c = 0; c < 3; c++) {
+                                const val = 128
+                                    - eData[((y-1)*ew+(x-1))*4+c]*2
+                                    - eData[((y-1)*ew+x)*4+c]
+                                    + eData[(y*ew+(x+1))*4+c]
+                                    + eData[((y+1)*ew+(x+1))*4+c]*2;
+                                data[idx+c] = Math.max(0, Math.min(255, val));
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                case 'edgeDetect': {
+                    const gw = layer.canvas.width, gh = layer.canvas.height;
+                    const gData = new Uint8ClampedArray(data);
+                    for (let y = 1; y < gh - 1; y++) {
+                        for (let x = 1; x < gw - 1; x++) {
+                            const idx = (y*gw+x)*4;
+                            for (let c = 0; c < 3; c++) {
+                                const val = Math.abs(
+                                    -gData[((y-1)*gw+x)*4+c]
+                                    -gData[(y*gw+(x-1))*4+c] + 4*gData[idx+c]
+                                    -gData[(y*gw+(x+1))*4+c]
+                                    -gData[((y+1)*gw+x)*4+c]
+                                );
+                                data[idx+c] = Math.min(255, val);
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                case 'vignette': {
+                    const vw = layer.canvas.width, vh = layer.canvas.height;
+                    const vcx = vw / 2, vcy = vh / 2;
+                    const maxDist = Math.sqrt(vcx*vcx + vcy*vcy);
+                    for (let y = 0; y < vh; y++) {
+                        for (let x = 0; x < vw; x++) {
+                            const idx = (y*vw+x)*4;
+                            const dist = Math.sqrt((x-vcx)**2 + (y-vcy)**2);
+                            const factor = 1 - Math.pow(dist / maxDist, 1.5) * 0.85;
+                            data[idx]   = Math.max(0, data[idx]   * factor);
+                            data[idx+1] = Math.max(0, data[idx+1] * factor);
+                            data[idx+2] = Math.max(0, data[idx+2] * factor);
+                        }
+                    }
+                    break;
+                }
             }
-            
+
             layerCtx.putImageData(imageData, 0, 0);
             renderLayers();
             addToHistory(`Applied ${type} filter`);
@@ -6518,6 +6821,25 @@
             // already prevents us reaching here — this is just a safety net.
             if (textEditState) return;
 
+            if (e.code === 'Escape' && !e.shiftKey && !e.altKey && !e.ctrlKey) {
+                if (polygonalLassoActive) {
+                    e.preventDefault();
+                    polygonalLassoActive = false;
+                    polygonalLassoPoints = [];
+                    polygonalLassoPreviewPoint = null;
+                    if (selectionOp === 'new') clearSelectionState();
+                    renderLayers();
+                    return;
+                }
+            }
+
+            if (e.shiftKey && !e.altKey && !e.ctrlKey) {
+                switch (e.code) {
+                    case 'KeyM': e.preventDefault(); selectTool('ellipticalMarquee'); break;
+                    case 'KeyL': e.preventDefault(); selectTool('polygonalLasso');    break;
+                }
+            }
+
             if (!e.shiftKey && !e.altKey) {
                 switch (e.code) {
                     case 'KeyV': e.preventDefault(); selectTool('move');      break;
@@ -6571,8 +6893,8 @@
         }
 
         function hasActiveEditSelection() {
-            if (!selectedArea) return false;
-            if (!(selectionMode === 'marquee' || selectionMode === 'lasso' || selectionMode === 'magicWand')) return false;
+            if (!selectedArea && !selectedPixelSet) return false;
+            if (!['marquee', 'ellipticalMarquee', 'lasso', 'polygonalLasso', 'magicWand'].includes(selectionMode)) return false;
             if (!selectionMaskCanvas || !selectionBounds) {
                 rebuildSelectionMask();
             }
@@ -6602,7 +6924,21 @@
                 return x >= minX && x <= maxX && y >= minY && y <= maxY;
             }
 
-            if (selectionMode === 'lasso' && Array.isArray(selectedArea) && selectedArea.length > 2) {
+            if (selectionMode === 'ellipticalMarquee' && typeof selectedArea === 'object' && !Array.isArray(selectedArea)) {
+                if (selectedPixelSet) {
+                    const { mask, w } = selectedPixelSet;
+                    const xi = Math.round(x), yi = Math.round(y);
+                    return !!mask[yi * w + xi];
+                }
+                const cx = (selectedArea.x1 + selectedArea.x2) / 2;
+                const cy = (selectedArea.y1 + selectedArea.y2) / 2;
+                const rx = Math.abs(selectedArea.x2 - selectedArea.x1) / 2;
+                const ry = Math.abs(selectedArea.y2 - selectedArea.y1) / 2;
+                if (rx <= 0 || ry <= 0) return false;
+                return ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+            }
+
+            if ((selectionMode === 'lasso' || selectionMode === 'polygonalLasso') && Array.isArray(selectedArea) && selectedArea.length > 2) {
                 return isPointInPolygon(x, y, selectedArea);
             }
 
@@ -6627,7 +6963,13 @@
                 const w = Math.abs(selectedArea.x2 - selectedArea.x1);
                 const h = Math.abs(selectedArea.y2 - selectedArea.y1);
                 context.rect(x, y, w, h);
-            } else if (selectionMode === 'lasso' && Array.isArray(selectedArea) && selectedArea.length > 1) {
+            } else if (selectionMode === 'ellipticalMarquee' && typeof selectedArea === 'object' && !Array.isArray(selectedArea)) {
+                const cx = (selectedArea.x1 + selectedArea.x2) / 2;
+                const cy = (selectedArea.y1 + selectedArea.y2) / 2;
+                const rx = Math.abs(selectedArea.x2 - selectedArea.x1) / 2;
+                const ry = Math.abs(selectedArea.y2 - selectedArea.y1) / 2;
+                if (rx > 0 && ry > 0) context.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            } else if ((selectionMode === 'lasso' || selectionMode === 'polygonalLasso') && Array.isArray(selectedArea) && selectedArea.length > 1) {
                 context.moveTo(selectedArea[0].x, selectedArea[0].y);
                 for (let i = 1; i < selectedArea.length; i++) {
                     context.lineTo(selectedArea[i].x, selectedArea[i].y);
@@ -6656,6 +6998,17 @@
                     const w = Math.abs(selectedArea.x2 - selectedArea.x1);
                     const h = Math.abs(selectedArea.y2 - selectedArea.y1);
                     ctx.rect(x, y, w, h);
+                } else if (selectionMode === 'ellipticalMarquee' && typeof selectedArea === 'object' && !Array.isArray(selectedArea)) {
+                    const cx = (selectedArea.x1 + selectedArea.x2) / 2;
+                    const cy = (selectedArea.y1 + selectedArea.y2) / 2;
+                    const rx = Math.abs(selectedArea.x2 - selectedArea.x1) / 2;
+                    const ry = Math.abs(selectedArea.y2 - selectedArea.y1) / 2;
+                    if (rx > 0 && ry > 0) ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                } else if (selectionMode === 'polygonalLasso' && polygonalLassoActive && polygonalLassoPoints.length > 0) {
+                    // Open path + rubber-band preview during creation
+                    ctx.moveTo(polygonalLassoPoints[0].x, polygonalLassoPoints[0].y);
+                    for (let i = 1; i < polygonalLassoPoints.length; i++) ctx.lineTo(polygonalLassoPoints[i].x, polygonalLassoPoints[i].y);
+                    if (polygonalLassoPreviewPoint) ctx.lineTo(polygonalLassoPreviewPoint.x, polygonalLassoPreviewPoint.y);
                 } else if (Array.isArray(selectedArea) && selectedArea.length > 1) {
                     ctx.moveTo(selectedArea[0].x, selectedArea[0].y);
                     for (let i = 1; i < selectedArea.length; i++) ctx.lineTo(selectedArea[i].x, selectedArea[i].y);
@@ -6774,10 +7127,23 @@
             const dx = Math.round(x - selectionBorderDrag.startX);
             const dy = Math.round(y - selectionBorderDrag.startY);
 
-            if (selectionMode === 'marquee' && selectionBorderDrag.savedArea && !Array.isArray(selectionBorderDrag.savedArea)) {
+            if ((selectionMode === 'marquee' || selectionMode === 'ellipticalMarquee') && selectionBorderDrag.savedArea && !Array.isArray(selectionBorderDrag.savedArea)) {
                 const s = selectionBorderDrag.savedArea;
                 selectedArea = { x1: s.x1 + dx, y1: s.y1 + dy, x2: s.x2 + dx, y2: s.y2 + dy };
-            } else if (selectionMode === 'lasso' && Array.isArray(selectionBorderDrag.savedArea)) {
+                if (selectionMode === 'ellipticalMarquee' && selectionBorderDrag.savedPixelSet) {
+                    // Shift pixel mask along with bounding box
+                    const { mask: savedMask, w, h } = selectionBorderDrag.savedPixelSet;
+                    const newMask = new Uint8Array(w * h);
+                    for (let row = 0; row < h; row++) {
+                        for (let col = 0; col < w; col++) {
+                            if (!savedMask[row * w + col]) continue;
+                            const nr = row + dy, nc = col + dx;
+                            if (nr >= 0 && nr < h && nc >= 0 && nc < w) newMask[nr * w + nc] = 1;
+                        }
+                    }
+                    selectedPixelSet = { mask: newMask, w, h };
+                }
+            } else if ((selectionMode === 'lasso' || selectionMode === 'polygonalLasso') && Array.isArray(selectionBorderDrag.savedArea)) {
                 selectedArea = selectionBorderDrag.savedArea.map(p => ({ x: p.x + dx, y: p.y + dy }));
                 lassoPoints = selectedArea.slice();
             } else if (selectionMode === 'magicWand' && selectionBorderDrag.savedPixelSet) {
@@ -6844,7 +7210,8 @@
         }
 
         function rebuildSelectionMask() {
-            if (!selectedArea || !(selectionMode === 'marquee' || selectionMode === 'lasso' || selectionMode === 'magicWand')) {
+            const validModes = ['marquee', 'ellipticalMarquee', 'lasso', 'polygonalLasso', 'magicWand'];
+            if ((!selectedArea && !selectedPixelSet) || !validModes.includes(selectionMode)) {
                 selectionMaskCanvas = null;
                 selectionBounds = null;
                 return;
@@ -6863,7 +7230,21 @@
                 const h = Math.abs(selectedArea.y2 - selectedArea.y1);
                 mctx.fillRect(x, y, w, h);
                 selectionBounds = { x, y, width: w, height: h };
-            } else if (selectionMode === 'lasso' && Array.isArray(selectedArea) && selectedArea.length > 2) {
+            } else if (selectionMode === 'ellipticalMarquee' && typeof selectedArea === 'object' && !Array.isArray(selectedArea)) {
+                const cx = (selectedArea.x1 + selectedArea.x2) / 2;
+                const cy = (selectedArea.y1 + selectedArea.y2) / 2;
+                const rx = Math.abs(selectedArea.x2 - selectedArea.x1) / 2;
+                const ry = Math.abs(selectedArea.y2 - selectedArea.y1) / 2;
+                mctx.beginPath();
+                mctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                mctx.fill();
+                selectionBounds = {
+                    x: Math.min(selectedArea.x1, selectedArea.x2),
+                    y: Math.min(selectedArea.y1, selectedArea.y2),
+                    width: Math.abs(selectedArea.x2 - selectedArea.x1),
+                    height: Math.abs(selectedArea.y2 - selectedArea.y1)
+                };
+            } else if ((selectionMode === 'lasso' || selectionMode === 'polygonalLasso') && Array.isArray(selectedArea) && selectedArea.length > 2) {
                 mctx.beginPath();
                 mctx.moveTo(selectedArea[0].x, selectedArea[0].y);
                 for (let i = 1; i < selectedArea.length; i++) {
@@ -7160,7 +7541,13 @@
                 const sx2 = Math.max(selectedArea.x1, selectedArea.x2);
                 const sy2 = Math.max(selectedArea.y1, selectedArea.y2);
                 layer.strokes.forEach(s => { if (strokeIntersectsRect(s, sx1, sy1, sx2, sy2)) s.selected = true; });
-            } else if (selectionMode === 'lasso' && Array.isArray(selectedArea) && selectedArea.length > 2) {
+            } else if (selectionMode === 'ellipticalMarquee' && selectedArea && !Array.isArray(selectedArea)) {
+                if (selectedPixelSet) {
+                    layer.strokes.forEach(s => { if (strokeInMagicWandSet(s)) s.selected = true; });
+                } else if (selectionBounds) {
+                    layer.strokes.forEach(s => { if (strokeIntersectsRect(s, selectionBounds.x, selectionBounds.y, selectionBounds.x + selectionBounds.width, selectionBounds.y + selectionBounds.height)) s.selected = true; });
+                }
+            } else if ((selectionMode === 'lasso' || selectionMode === 'polygonalLasso') && Array.isArray(selectedArea) && selectedArea.length > 2) {
                 layer.strokes.forEach(s => { if (strokeIntersectsLasso(s, selectedArea)) s.selected = true; });
             } else if (selectionMode === 'magicWand' && selectedPixelSet) {
                 layer.strokes.forEach(s => { if (strokeInMagicWandSet(s)) s.selected = true; });

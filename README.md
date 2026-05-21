@@ -4,7 +4,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 **🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
 
-![ProPhoto Editor](https://img.shields.io/badge/version-1.7.0-blue.svg)
+![ProPhoto Editor](https://img.shields.io/badge/version-1.8.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
@@ -424,12 +424,9 @@ ProPhoto Editor includes comprehensive project management features:
 ## 📝 Known Limitations
 
 - Undo/Redo history is capped at 20 steps; canvas snapshots are not persisted across page reloads (history labels are restored but pixel-level undo is reset on reload)
-- Only rectangular marquee is available — no elliptical/circle marquee
-- Only freehand lasso — no polygonal lasso tool
 - Magic wand selection border shows a bounding-box outline rather than a pixel-accurate contour (marching ants trace the bounding rectangle, not the individual selected pixels)
 - WebP and AVIF export requires a modern browser with codec support (Chrome 85+, Firefox 93+); not available in older Safari
 - GIF export uses 3-3-2 color quantization (256-colour palette); complex images may show banding
-- Shape tools (line, rectangle, ellipse) only draw outlines — no filled shapes
 - No non-destructive adjustment layers; filters are applied directly to pixel data
 
 ## 🚧 Future Enhancements
@@ -440,13 +437,15 @@ ProPhoto Editor includes comprehensive project management features:
 - [x] Photoshop-style floating selection — lift, move, scale, and rotate selected content
 - [x] Marching ants animation on selection borders
 - [x] Move selection border without moving content
-- [ ] Elliptical marquee and polygonal lasso tools
+- [x] Elliptical marquee tool — oval selections with marching ants ellipse, Shift=circle, combine modes
+- [x] Polygonal lasso tool — click-to-place vertices, rubber-band preview, close on double-click or near start
+- [x] Filled shape option — Fill Shape toggle for rectangle and ellipse tools
+- [x] Additional filters — noise, emboss, edge detect, vignette
+- [x] Categorised tool panel — tools grouped into Nav / Select / Paint / Shape / Utility sections
 - [ ] Pixel-accurate marching ants contour for magic wand selection
 - [ ] Transform tools — skew and perspective in addition to move/scale/rotate
-- [ ] Filled shape option for rectangle, ellipse, and polygon tools
 - [ ] Gradient tool
 - [ ] Pattern / clone-stamp tool
-- [ ] Additional filters — emboss, edge detect, vignette, noise
 - [ ] Adjustment layers (non-destructive brightness, curves, hue/saturation)
 - [ ] Per-layer blend modes (multiply, screen, overlay, etc.)
 - [ ] Batch processing / scripting
