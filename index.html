@@ -1757,6 +1757,16 @@
                     <div class="dropdown-item" onclick="event.stopPropagation(); undoAction(); hideAllDropdowns();">Undo (Ctrl+Z)</div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); redoAction(); hideAllDropdowns();">Redo (Ctrl+Shift+Z)</div>
                     <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); beginFreeTransform(); hideAllDropdowns();">Free Transform (Ctrl+T)</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyRotate90CW(); hideAllDropdowns();">↻ Rotate 90° CW</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyRotate90CCW(); hideAllDropdowns();">↺ Rotate 90° CCW</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyRotate180(); hideAllDropdowns();">⟲ Rotate 180°</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyFlipHorizontal(); hideAllDropdowns();">⇋ Flip Horizontal</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyFlipVertical(); hideAllDropdowns();">⇅ Flip Vertical</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applySkewTransform(); hideAllDropdowns();">Skew...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); applyPerspectiveTransform(); hideAllDropdowns();">Perspective...</div>
+                    <div class="dropdown-divider"></div>
                     <div class="dropdown-item" onclick="event.stopPropagation(); clearCanvas(); hideAllDropdowns();">Clear Canvas</div>
                 </div>
             </div>
@@ -2203,7 +2213,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.9.5</p>
+                    <p>Version 1.10.0</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2212,7 +2222,7 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
 
-                <p>New in v1.9.5: Layer preview icons now show live thumbnail snapshots of each layer canvas instead of a static placeholder.</p>
+                <p>New in v1.10.0: Added Photoshop-style transform suite with Free Transform (Ctrl+T), 90° rotate actions, flip horizontal/vertical, skew, perspective, and Shift-constrained transform behavior.</p>
 
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
@@ -2387,6 +2397,7 @@
         let selectionBounds = null;
         let floatingSelection = null;
         let moveInteraction = null;
+        let freeTransformSession = null;
         let lassoPoints = [];
         let strokeIdCounter = 0;
         let currentStrokeId = null;
@@ -4114,7 +4125,9 @@
         // Select tool
         function selectTool(tool) {
             if (currentTool === 'move' && floatingSelection && tool !== 'move') {
-                if (commitFloatingSelection()) {
+                if (freeTransformSession) {
+                    finishFreeTransform(true);
+                } else if (commitFloatingSelection()) {
                     addToHistory('Transform Selection');
                 }
             }
@@ -5102,6 +5115,7 @@
                 ctx.save();
                 ctx.translate(cx, cy);
                 ctx.rotate(floatingSelection.rotation);
+                ctx.transform(1, floatingSelection.skewY || 0, floatingSelection.skewX || 0, 1, 0, 0);
                 ctx.scale(floatingSelection.scaleX, floatingSelection.scaleY);
                 ctx.drawImage(floatingSelection.canvas, -cx, -cy);
                 ctx.restore();
@@ -7229,11 +7243,21 @@
                         e.preventDefault(); e.stopPropagation();
                         toggleGuides();
                         break;
+                    case 'KeyT':
+                        e.preventDefault(); e.stopPropagation();
+                        beginFreeTransform();
+                        break;
                 }
                 return; // don't process bare-key shortcuts when Ctrl is held
             }
 
             if (isEditableTarget) return;
+
+            if (freeTransformSession && e.code === 'Enter') {
+                e.preventDefault(); e.stopPropagation();
+                finishFreeTransform(true);
+                return;
+            }
 
             // Crop context: Enter applies, Escape cancels
             if (currentTool === 'crop' && cropArea) {
@@ -7256,6 +7280,10 @@
             // Escape: commit floating selection / clear selection
             if (e.code === 'Escape') {
                 e.preventDefault(); e.stopPropagation();
+                if (freeTransformSession) {
+                    finishFreeTransform(false);
+                    return;
+                }
                 if (floatingSelection) { commitFloatingSelection(); addToHistory('Commit Selection'); }
                 clearSelectionState();
                 moveInteraction = null;
@@ -7800,6 +7828,8 @@
                 scaleX: 1,
                 scaleY: 1,
                 rotation: 0,
+                skewX: 0,
+                skewY: 0,
                 bounds: { ...selectionBounds }
             };
             return true;
@@ -7866,6 +7896,214 @@
             return Math.abs(lx) <= halfW && Math.abs(ly) <= halfH;
         }
 
+        function cloneFloatingSelectionState(src) {
+            if (!src) return null;
+            const c = document.createElement('canvas');
+            c.width = src.canvas.width;
+            c.height = src.canvas.height;
+            c.getContext('2d').drawImage(src.canvas, 0, 0);
+            return {
+                canvas: c,
+                originX: src.originX,
+                originY: src.originY,
+                tx: src.tx,
+                ty: src.ty,
+                scaleX: src.scaleX,
+                scaleY: src.scaleY,
+                rotation: src.rotation,
+                skewX: src.skewX || 0,
+                skewY: src.skewY || 0,
+                bounds: { ...src.bounds },
+                vectorStrokes: Array.isArray(src.vectorStrokes) ? JSON.parse(JSON.stringify(src.vectorStrokes)) : null
+            };
+        }
+
+        function beginFreeTransform() {
+            selectTool('move');
+            if (isLayerLocked()) return false;
+            if (freeTransformSession) {
+                showNotification('Free Transform is already active', 1500);
+                return true;
+            }
+
+            const layer = layers[currentLayer];
+            if (!layer) return false;
+            const layerCtx = layer.canvas.getContext('2d');
+            freeTransformSession = {
+                layerIndex: currentLayer,
+                layerImageData: layerCtx.getImageData(0, 0, layer.canvas.width, layer.canvas.height),
+                layerStrokes: cloneStrokes(layer.strokes),
+                selectedElementInfo: selectedElementInfo ? { ...selectedElementInfo } : null,
+                selectionMode,
+                selectedArea: selectedArea ? JSON.parse(JSON.stringify(selectedArea)) : null,
+                selectedPixelSet: selectedPixelSet ? { mask: selectedPixelSet.mask.slice(), w: selectedPixelSet.w, h: selectedPixelSet.h } : null,
+                floatingSelection: cloneFloatingSelectionState(floatingSelection)
+            };
+
+            if (!floatingSelection) {
+                let ok = false;
+                if (selectedElementInfo && selectedElementInfo.layerIndex === currentLayer) {
+                    ok = extractVectorFloatingSelection();
+                } else if (hasActiveEditSelection()) {
+                    ok = extractVectorFloatingSelection() || extractFloatingSelectionFromCurrentLayer();
+                } else if ((layer.strokes || []).length > 0) {
+                    (layer.strokes || []).forEach(s => { s.selected = true; });
+                    ok = extractVectorFloatingSelection();
+                } else {
+                    const floatCanvas = document.createElement('canvas');
+                    floatCanvas.width = canvas.width;
+                    floatCanvas.height = canvas.height;
+                    floatCanvas.getContext('2d').drawImage(layer.canvas, 0, 0);
+                    layerCtx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+                    floatingSelection = {
+                        canvas: floatCanvas,
+                        originX: 0, originY: 0,
+                        tx: 0, ty: 0,
+                        scaleX: 1, scaleY: 1,
+                        rotation: 0,
+                        skewX: 0, skewY: 0,
+                        bounds: { x: 0, y: 0, width: canvas.width, height: canvas.height },
+                        vectorStrokes: null
+                    };
+                    ok = true;
+                }
+                if (!ok || !floatingSelection) {
+                    freeTransformSession = null;
+                    showNotification('Nothing to transform', 1500);
+                    return false;
+                }
+            }
+
+            renderLayers();
+            updateLayerList();
+            showNotification('Free Transform active: drag handles, Enter=commit, Esc=cancel', 2200);
+            return true;
+        }
+
+        function finishFreeTransform(commitChanges) {
+            if (!freeTransformSession) return false;
+            if (commitChanges) {
+                const committed = floatingSelection ? commitFloatingSelection() : true;
+                if (committed) addToHistory('Free Transform');
+                freeTransformSession = null;
+                moveInteraction = null;
+                renderLayers();
+                return committed;
+            }
+
+            const snap = freeTransformSession;
+            const layer = layers[snap.layerIndex];
+            if (layer) {
+                currentLayer = snap.layerIndex;
+                const layerCtx = layer.canvas.getContext('2d');
+                layerCtx.putImageData(snap.layerImageData, 0, 0);
+                layer.strokes = cloneStrokes(snap.layerStrokes);
+            }
+            selectedElementInfo = snap.selectedElementInfo ? { ...snap.selectedElementInfo } : null;
+            selectionMode = snap.selectionMode;
+            selectedArea = snap.selectedArea ? JSON.parse(JSON.stringify(snap.selectedArea)) : null;
+            selectedPixelSet = snap.selectedPixelSet ? { mask: snap.selectedPixelSet.mask.slice(), w: snap.selectedPixelSet.w, h: snap.selectedPixelSet.h } : null;
+            if (selectionMode && (selectedArea || selectedPixelSet)) rebuildSelectionMask();
+            else { selectionMaskCanvas = null; selectionBounds = null; }
+            floatingSelection = cloneFloatingSelectionState(snap.floatingSelection);
+            moveInteraction = null;
+            freeTransformSession = null;
+            updateLayerList();
+            renderLayers();
+            updateSelectionDisplay();
+            showNotification('Free Transform cancelled', 1500);
+            return true;
+        }
+
+        function applySkewTransform() {
+            if (!beginFreeTransform()) return;
+            const xDeg = parseFloat(prompt('Skew Horizontal (degrees, e.g. 12 or -8):', '0'));
+            if (Number.isNaN(xDeg)) return;
+            const yDeg = parseFloat(prompt('Skew Vertical (degrees, e.g. 6 or -4):', '0'));
+            if (Number.isNaN(yDeg) || !floatingSelection) return;
+
+            const sx = Math.tan((xDeg * Math.PI) / 180);
+            const sy = Math.tan((yDeg * Math.PI) / 180);
+            const src = floatingSelection.canvas;
+            const out = document.createElement('canvas');
+            out.width = src.width;
+            out.height = src.height;
+            const octx = out.getContext('2d');
+            const b = floatingSelection.bounds;
+            const cx = b.x + b.width / 2;
+            const cy = b.y + b.height / 2;
+            octx.save();
+            octx.translate(cx, cy);
+            octx.transform(1, sy, sx, 1, 0, 0);
+            octx.translate(-cx, -cy);
+            octx.drawImage(src, 0, 0);
+            octx.restore();
+            floatingSelection.canvas = out;
+            renderLayers();
+            showNotification('Skew applied (Enter to commit)', 1600);
+        }
+
+        function applyRotateByDegrees(deg) {
+            if (!beginFreeTransform() || !floatingSelection) return;
+            floatingSelection.rotation += (deg * Math.PI) / 180;
+            renderLayers();
+            showNotification(`Rotate ${deg}° applied (Enter to commit)`, 1600);
+        }
+
+        function applyRotate90CW() {
+            applyRotateByDegrees(90);
+        }
+
+        function applyRotate90CCW() {
+            applyRotateByDegrees(-90);
+        }
+
+        function applyRotate180() {
+            applyRotateByDegrees(180);
+        }
+
+        function applyFlipHorizontal() {
+            if (!beginFreeTransform() || !floatingSelection) return;
+            floatingSelection.scaleX = -(floatingSelection.scaleX || 1);
+            renderLayers();
+            showNotification('Flip Horizontal applied (Enter to commit)', 1600);
+        }
+
+        function applyFlipVertical() {
+            if (!beginFreeTransform() || !floatingSelection) return;
+            floatingSelection.scaleY = -(floatingSelection.scaleY || 1);
+            renderLayers();
+            showNotification('Flip Vertical applied (Enter to commit)', 1600);
+        }
+
+        function applyPerspectiveTransform() {
+            if (!beginFreeTransform() || !floatingSelection) return;
+            const amount = parseFloat(prompt('Perspective Amount (-60 to 60). Positive = top narrower, negative = bottom narrower:', '20'));
+            if (Number.isNaN(amount)) return;
+            const p = Math.max(-60, Math.min(60, amount)) / 100;
+
+            const src = floatingSelection.canvas;
+            const out = document.createElement('canvas');
+            out.width = src.width;
+            out.height = src.height;
+            const octx = out.getContext('2d');
+            const b = floatingSelection.bounds;
+            const x = Math.floor(b.x), y = Math.floor(b.y), w = Math.max(1, Math.floor(b.width)), h = Math.max(1, Math.floor(b.height));
+
+            // Trapezoid perspective warp using scanline resampling.
+            for (let row = 0; row < h; row++) {
+                const t = row / Math.max(1, h - 1);
+                const widthScale = 1 + p * (1 - 2 * t);
+                const dw = Math.max(1, w * widthScale);
+                const dx = x + (w - dw) / 2;
+                octx.drawImage(src, x, y + row, w, 1, dx, y + row, dw, 1);
+            }
+
+            floatingSelection.canvas = out;
+            renderLayers();
+            showNotification('Perspective applied (Enter to commit)', 1600);
+        }
+
         function startMoveInteraction(x, y, e) {
             if (currentTool !== 'move') return false;
 
@@ -7879,6 +8117,17 @@
 
             const handleHit = hitTestFloatingHandles(x, y);
             if (handleHit) {
+                if (e && (e.ctrlKey || e.metaKey) && handleHit.type === 'scale') {
+                    moveInteraction = {
+                        type: 'skew-selection',
+                        corner: handleHit.corner,
+                        startX: x,
+                        startY: y,
+                        baseSkewX: floatingSelection.skewX || 0,
+                        baseSkewY: floatingSelection.skewY || 0
+                    };
+                    return true;
+                }
                 if (handleHit.type === 'rotate') {
                     const center = getFloatingSelectionCenter();
                     moveInteraction = {
@@ -7949,16 +8198,27 @@
             if (!floatingSelection) return false;
 
             if (moveInteraction.type === 'move-selection') {
-                floatingSelection.tx = moveInteraction.baseTx + (x - moveInteraction.startX);
-                floatingSelection.ty = moveInteraction.baseTy + (y - moveInteraction.startY);
+                let dx = x - moveInteraction.startX;
+                let dy = y - moveInteraction.startY;
+                if (e && e.shiftKey) {
+                    if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+                    else dx = 0;
+                }
+                floatingSelection.tx = moveInteraction.baseTx + dx;
+                floatingSelection.ty = moveInteraction.baseTy + dy;
                 renderLayers();
                 return true;
             }
             if (moveInteraction.type === 'scale-selection') {
                 const dx = x - moveInteraction.startX;
                 const dy = y - moveInteraction.startY;
-                const factorX = 1 + (moveInteraction.corner.includes('e') ? dx : -dx) / Math.max(1, floatingSelection.bounds.width);
-                const factorY = 1 + (moveInteraction.corner.includes('s') ? dy : -dy) / Math.max(1, floatingSelection.bounds.height);
+                let factorX = 1 + (moveInteraction.corner.includes('e') ? dx : -dx) / Math.max(1, floatingSelection.bounds.width);
+                let factorY = 1 + (moveInteraction.corner.includes('s') ? dy : -dy) / Math.max(1, floatingSelection.bounds.height);
+                if (e && e.shiftKey) {
+                    const f = Math.abs(factorX - 1) >= Math.abs(factorY - 1) ? factorX : factorY;
+                    factorX = f;
+                    factorY = f;
+                }
                 floatingSelection.scaleX = Math.max(0.05, moveInteraction.baseScaleX * factorX);
                 floatingSelection.scaleY = Math.max(0.05, moveInteraction.baseScaleY * factorY);
                 renderLayers();
@@ -7967,7 +8227,28 @@
             if (moveInteraction.type === 'rotate-selection') {
                 const center = getFloatingSelectionCenter();
                 const currentAngle = Math.atan2(y - center.y, x - center.x);
-                floatingSelection.rotation = moveInteraction.baseRotation + (currentAngle - moveInteraction.startAngle);
+                let nextRotation = moveInteraction.baseRotation + (currentAngle - moveInteraction.startAngle);
+                if (e && e.shiftKey) {
+                    const snap = Math.PI / 12; // 15°
+                    nextRotation = Math.round(nextRotation / snap) * snap;
+                }
+                floatingSelection.rotation = nextRotation;
+                renderLayers();
+                return true;
+            }
+            if (moveInteraction.type === 'skew-selection') {
+                const dx = x - moveInteraction.startX;
+                const dy = y - moveInteraction.startY;
+                const skewXDelta = (moveInteraction.corner.includes('e') ? dx : -dx) / Math.max(1, floatingSelection.bounds.width);
+                const skewYDelta = (moveInteraction.corner.includes('s') ? dy : -dy) / Math.max(1, floatingSelection.bounds.height);
+                let nextSkewX = moveInteraction.baseSkewX + skewXDelta;
+                let nextSkewY = moveInteraction.baseSkewY + skewYDelta;
+                if (e && e.shiftKey) {
+                    if (Math.abs(skewXDelta) >= Math.abs(skewYDelta)) nextSkewY = moveInteraction.baseSkewY;
+                    else nextSkewX = moveInteraction.baseSkewX;
+                }
+                floatingSelection.skewX = Math.max(-1.5, Math.min(1.5, nextSkewX));
+                floatingSelection.skewY = Math.max(-1.5, Math.min(1.5, nextSkewY));
                 renderLayers();
                 return true;
             }
@@ -7992,6 +8273,7 @@
                 const cy = b.y + b.height / 2 + floating.ty;
                 layerCtx.translate(cx, cy);
                 layerCtx.rotate(floating.rotation);
+                layerCtx.transform(1, floating.skewY || 0, floating.skewX || 0, 1, 0, 0);
                 layerCtx.scale(floating.scaleX, floating.scaleY);
                 layerCtx.drawImage(
                     floating.canvas,
@@ -8044,7 +8326,7 @@
                 }
                 return;
             }
-            const shouldCommit = moveInteraction.type === 'move-selection' || moveInteraction.type === 'scale-selection' || moveInteraction.type === 'rotate-selection';
+            const shouldCommit = moveInteraction.type === 'move-selection' || moveInteraction.type === 'scale-selection' || moveInteraction.type === 'rotate-selection' || moveInteraction.type === 'skew-selection';
             moveInteraction = null;
             if (shouldCommit) {
                 if (
@@ -8376,11 +8658,13 @@
             const dy = ty - cy;
             const sx = dx * floating.scaleX;
             const sy = dy * floating.scaleY;
+            const skx = sx + sy * (floating.skewX || 0);
+            const sky = sy + sx * (floating.skewY || 0);
             const cosR = Math.cos(floating.rotation);
             const sinR = Math.sin(floating.rotation);
             return {
-                x: cx + (sx * cosR - sy * sinR),
-                y: cy + (sx * sinR + sy * cosR)
+                x: cx + (skx * cosR - sky * sinR),
+                y: cy + (skx * sinR + sky * cosR)
             };
         }
 
@@ -8505,6 +8789,7 @@
                 tx: 0, ty: 0,
                 scaleX: 1, scaleY: 1,
                 rotation: 0,
+                skewX: 0, skewY: 0,
                 bounds: {x: bx1, y: by1, width: w, height: h},
                 vectorStrokes: sel.map(s => JSON.parse(JSON.stringify(s)))
             };

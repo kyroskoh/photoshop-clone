@@ -5,6 +5,16 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-05-21
+
+### Added
+- **Photoshop-style Free Transform workflow** — `Ctrl+T` now starts Free Transform; `Enter` commits and `Esc` cancels/restores session state.
+- **Advanced transform actions (Edit menu)** — rotate 90° CW/CCW, rotate 180°, flip horizontal/vertical, skew, and perspective commands added.
+- **Shift-constrained transforms** — Shift now constrains transform interactions: axis-lock move, proportional scale, angle-snapped rotate, and axis-constrained skew.
+
+### Changed
+- **About panel release notes** — updated to surface the new 1.10.0 transform suite and behavior.
+
 ## [1.9.5] - 2026-05-21
 
 ### Added
@@ -399,6 +409,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.10.0** - Added full Free Transform workflow, 90° rotate/flip/skew/perspective actions, and Shift-constrained transform behavior
 - **v1.9.5** - Added live layer thumbnail snapshots in the layer preview icons
 - **v1.9.4** - Preserved spray rendering and shape geometry correctly after moving selected elements
 - **v1.9.3** - Selected-element move commit cleanup, corrected canvas coordinate mapping at zoom, and auto-expand layer on new element creation

@@ -2,7 +2,7 @@
 
 ## Test Plan
 **Project**: ProPhoto Editor - Photoshop Clone
-**Version**: 1.9.5
+**Version**: 1.10.0
 **Created by**: Kyros Koh
 **Website Type**: Complex WebApp (Single HTML Image Editor)
 **Deployed URL**: https://kyroskoh.github.io/photoshop-clone/

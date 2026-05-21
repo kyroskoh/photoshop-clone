@@ -4,7 +4,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 **🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
 
-![ProPhoto Editor](https://img.shields.io/badge/version-1.9.5-blue.svg)
+![ProPhoto Editor](https://img.shields.io/badge/version-1.10.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
@@ -428,6 +428,7 @@ ProPhoto Editor includes comprehensive project management features:
 - WebP and AVIF export requires a modern browser with codec support (Chrome 85+, Firefox 93+); not available in older Safari
 - GIF export uses 3-3-2 color quantization (256-colour palette); complex images may show banding
 - No non-destructive adjustment layers; filters are applied directly to pixel data
+- Perspective transform currently uses a lightweight trapezoid-style warp; advanced mesh/vanishing-point controls are not yet implemented
 
 ## 🚧 Future Enhancements
 
@@ -443,7 +444,7 @@ ProPhoto Editor includes comprehensive project management features:
 - [x] Additional filters — noise, emboss, edge detect, vignette
 - [x] Categorised tool panel — tools grouped into Nav / Select / Paint / Shape / Utility sections
 - [ ] Pixel-accurate marching ants contour for magic wand selection
-- [ ] Transform tools — skew and perspective in addition to move/scale/rotate
+- [x] Transform tools — Free Transform (Ctrl+T), rotate 90° CW/CCW, rotate 180°, flip horizontal/vertical, skew, and perspective
 - [ ] Gradient tool
 - [ ] Pattern / clone-stamp tool
 - [ ] Adjustment layers (non-destructive brightness, curves, hue/saturation)
