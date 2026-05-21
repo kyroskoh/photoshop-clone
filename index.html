@@ -1758,6 +1758,21 @@
                         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="4" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="4" y="14" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="14" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/></svg>
                     </div>
                 </button>
+                <button class="tool-panel-button" id="lineTool" onclick="selectTool('line')" title="Line Tool (Shift=45°)">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="rectangleTool" onclick="selectTool('rectangle')" title="Rectangle Tool (Shift=Square)">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" stroke="currentColor" stroke-width="2" fill="none" rx="1"/></svg>
+                    </div>
+                </button>
+                <button class="tool-panel-button" id="ellipseTool" onclick="selectTool('ellipse')" title="Ellipse Tool (Shift=Circle)">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="6" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    </div>
+                </button>
             </div>
         </div>
 
@@ -2067,6 +2082,10 @@
         let lassoPoints = [];
         let strokeIdCounter = 0;
         let currentStrokeId = null;
+        let shapeStart = null;
+        let shapeEnd = null;
+        let sprayInterval = null;
+        let sprayX = 0, sprayY = 0;
         let cropArea = null;
         let cropInteractionMode = null;
         let cropDragOffset = { x: 0, y: 0 };
@@ -3400,8 +3419,13 @@
             startY = y;
             isDrawing = true;
             
-            if (currentTool === 'brush' || currentTool === 'pencil' || currentTool === 'eraser' || currentTool === 'spray') {
+            if (currentTool === 'brush' || currentTool === 'pencil' || currentTool === 'eraser') {
                 useBrush(x, y, false);
+            } else if (currentTool === 'spray') {
+                startSpray(x, y);
+            } else if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'ellipse') {
+                shapeStart = {x, y};
+                shapeEnd = {x, y};
             } else if (currentTool === 'marquee') {
                 if (!tryStartSelectionMove(x, y)) startMarquee(x, y);
             } else if (currentTool === 'lasso') {
@@ -3432,8 +3456,15 @@
             endX = x;
             endY = y;
             
-            if (currentTool === 'brush' || currentTool === 'pencil' || currentTool === 'eraser' || currentTool === 'spray') {
+            if (currentTool === 'brush' || currentTool === 'pencil' || currentTool === 'eraser') {
                 useBrush(x, y, true);
+            } else if (currentTool === 'spray') {
+                updateSpray(x, y);
+            } else if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'ellipse') {
+                if (shapeStart) {
+                    shapeEnd = constrainShapeEnd({x, y}, shapeStart, e);
+                    renderLayers();
+                }
             } else if (currentTool === 'marquee') {
                 if (moveInteraction) updateMoveInteraction(x, y, e);
                 else updateMarquee(x, y);
@@ -3457,7 +3488,15 @@
                 isDrawing = false;
                 
                 let didSelectionMove = false;
-                if (currentTool === 'marquee') {
+                if (currentTool === 'spray') {
+                    stopSpray();
+                } else if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'ellipse') {
+                    if (shapeStart && shapeEnd) {
+                        commitShape();
+                    }
+                    shapeStart = null;
+                    shapeEnd = null;
+                } else if (currentTool === 'marquee') {
                     if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
                     else endMarquee();
                 } else if (currentTool === 'lasso') {
@@ -3562,6 +3601,9 @@
                     addToHistory('Transform Selection');
                 }
             }
+            if (sprayInterval) { clearInterval(sprayInterval); sprayInterval = null; }
+            shapeStart = null;
+            shapeEnd = null;
             currentTool = tool;
             
             // Update tool buttons (both toolbar and tool panel)
@@ -3655,6 +3697,145 @@
                 }
             }
 
+            renderLayers();
+        }
+
+        // Spray tool — continuous particle emission with Gaussian distribution
+        function startSpray(x, y) {
+            const layer = layers[currentLayer];
+            if (!layer.strokes) layer.strokes = [];
+            const stroke = {
+                id: ++strokeIdCounter, tool: 'spray', color: primaryColor,
+                size: brushSize, opacity: opacity, compositeOp: 'source-over',
+                points: [{x, y}],
+                bx1: x - brushSize, by1: y - brushSize, bx2: x + brushSize, by2: y + brushSize,
+                selected: false
+            };
+            layer.strokes.push(stroke);
+            currentStrokeId = stroke.id;
+            sprayX = x; sprayY = y;
+            if (sprayInterval) clearInterval(sprayInterval);
+            sprayInterval = setInterval(() => {
+                doSprayTick(sprayX, sprayY, stroke);
+            }, 30);
+            doSprayTick(x, y, stroke);
+        }
+
+        function doSprayTick(x, y, stroke) {
+            const layer = layers[currentLayer];
+            const layerCtx = layer.canvas.getContext('2d');
+            const usingSelectionClip = applySelectionClip(layerCtx);
+            const radius = brushSize;
+            const dotCount = Math.max(3, Math.round(brushSize * opacity * 0.4));
+            layerCtx.save();
+            layerCtx.globalCompositeOperation = 'source-over';
+            for (let i = 0; i < dotCount; i++) {
+                // Box-Muller transform for Gaussian spread
+                const u = Math.random(), v = Math.random();
+                const gauss = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+                const dist = Math.abs(gauss) * radius * 0.5;
+                const angle = Math.random() * 2 * Math.PI;
+                const dx = Math.cos(angle) * dist;
+                const dy = Math.sin(angle) * dist;
+                const px = x + dx, py = y + dy;
+                const falloff = 1 - dist / radius;
+                const dotAlpha = Math.max(0, falloff * falloff * opacity * (0.5 + Math.random() * 0.5));
+                const dotSize = Math.max(0.5, (1 - dist / radius) * (brushSize * 0.08 + Math.random() * brushSize * 0.06));
+                layerCtx.globalAlpha = dotAlpha;
+                layerCtx.fillStyle = primaryColor;
+                layerCtx.beginPath();
+                layerCtx.arc(px, py, dotSize, 0, Math.PI * 2);
+                layerCtx.fill();
+                if (stroke) {
+                    if (px - dotSize < stroke.bx1) stroke.bx1 = px - dotSize;
+                    if (py - dotSize < stroke.by1) stroke.by1 = py - dotSize;
+                    if (px + dotSize > stroke.bx2) stroke.bx2 = px + dotSize;
+                    if (py + dotSize > stroke.by2) stroke.by2 = py + dotSize;
+                }
+            }
+            layerCtx.restore();
+            if (usingSelectionClip) layerCtx.restore();
+            renderLayers();
+        }
+
+        function updateSpray(x, y) {
+            sprayX = x; sprayY = y;
+            const layer = layers[currentLayer];
+            if (currentStrokeId !== null) {
+                const stroke = (layer.strokes || []).find(s => s.id === currentStrokeId);
+                if (stroke) stroke.points.push({x, y});
+            }
+        }
+
+        function stopSpray() {
+            if (sprayInterval) { clearInterval(sprayInterval); sprayInterval = null; }
+        }
+
+        // Shape tools — line, rectangle, ellipse
+        function constrainShapeEnd(rawEnd, start, e) {
+            if (!e || !e.shiftKey) return rawEnd;
+            const dx = rawEnd.x - start.x;
+            const dy = rawEnd.y - start.y;
+            if (currentTool === 'line') {
+                // Snap to nearest 45°
+                const angle = Math.atan2(dy, dx);
+                const snapped = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+                const len = Math.sqrt(dx * dx + dy * dy);
+                return { x: start.x + Math.cos(snapped) * len, y: start.y + Math.sin(snapped) * len };
+            } else {
+                // Square / circle: use the smaller dimension
+                const side = Math.min(Math.abs(dx), Math.abs(dy));
+                return { x: start.x + Math.sign(dx) * side, y: start.y + Math.sign(dy) * side };
+            }
+        }
+
+        function drawShapeToContext(ctx, start, end, isPreview) {
+            ctx.save();
+            ctx.strokeStyle = primaryColor;
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.globalAlpha = isPreview ? Math.max(0.3, opacity * 0.7) : opacity;
+            ctx.globalCompositeOperation = 'source-over';
+            if (isPreview) ctx.setLineDash([6, 3]);
+            ctx.beginPath();
+            if (currentTool === 'line') {
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+            } else if (currentTool === 'rectangle') {
+                const x = Math.min(start.x, end.x), y = Math.min(start.y, end.y);
+                const w = Math.abs(end.x - start.x), h = Math.abs(end.y - start.y);
+                ctx.strokeRect(x, y, w, h);
+            } else if (currentTool === 'ellipse') {
+                const cx = (start.x + end.x) / 2, cy = (start.y + end.y) / 2;
+                const rx = Math.abs(end.x - start.x) / 2, ry = Math.abs(end.y - start.y) / 2;
+                if (rx > 0 && ry > 0) {
+                    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        function commitShape() {
+            if (!shapeStart || !shapeEnd) return;
+            const layer = layers[currentLayer];
+            const layerCtx = layer.canvas.getContext('2d');
+            const usingSelectionClip = applySelectionClip(layerCtx);
+            drawShapeToContext(layerCtx, shapeStart, shapeEnd, false);
+            if (usingSelectionClip) layerCtx.restore();
+            const x1 = Math.min(shapeStart.x, shapeEnd.x) - brushSize;
+            const y1 = Math.min(shapeStart.y, shapeEnd.y) - brushSize;
+            const x2 = Math.max(shapeStart.x, shapeEnd.x) + brushSize;
+            const y2 = Math.max(shapeStart.y, shapeEnd.y) + brushSize;
+            if (!layer.strokes) layer.strokes = [];
+            layer.strokes.push({
+                id: ++strokeIdCounter, tool: currentTool, color: primaryColor,
+                size: brushSize, opacity: opacity, compositeOp: 'source-over',
+                points: [shapeStart, shapeEnd],
+                bx1: x1, by1: y1, bx2: x2, by2: y2, selected: false
+            });
+            shapeStart = null; shapeEnd = null;
             renderLayers();
         }
 
@@ -4011,6 +4192,10 @@
                 }
             }
             
+            if (shapeStart && shapeEnd) {
+                drawShapeToContext(ctx, shapeStart, shapeEnd, true);
+            }
+
             drawSelectionOverlay();
             updateCanvasSize();
         }

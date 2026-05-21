@@ -5,6 +5,26 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-05-20
+
+### Added
+- **Shape Tools — Line, Rectangle, Ellipse**
+  - New Line tool: click and drag to draw straight lines; hold Shift to snap to 45° increments.
+  - New Rectangle tool: click and drag to draw outlined rectangles; hold Shift to constrain to square.
+  - New Ellipse tool: click and drag to draw outlined ellipses; hold Shift to constrain to circle.
+  - Live dashed preview while dragging; shape is committed to the layer on mouse-up.
+  - All shape strokes are recorded as vector objects compatible with the selection/move system.
+  - Shape stroke width is controlled by the existing Size slider.
+
+### Changed
+- **Spray Tool Rewrite**
+  - Spray now emits discrete particles via a continuous `setInterval` loop (one tick every 30 ms) independent of mouse movement, matching the behaviour of airbrush tools.
+  - Particle positions use a Gaussian (Box-Muller) distribution centred on the cursor — denser near the centre, sparse at the edges.
+  - Particle alpha falls off quadratically with distance from the cursor, giving natural density gradient.
+  - Particle size varies randomly within the radius, creating organic variation.
+  - Dot count per tick scales with brush size and opacity, providing effective pressure simulation.
+  - Spray is no longer routed through the brush drawing path (separate `startSpray` / `doSprayTick` / `updateSpray` / `stopSpray` functions).
+
 ## [1.3.0] - 2026-05-20
 
 ### Added
@@ -168,6 +188,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.4.0** - Shape tools (Line, Rectangle, Ellipse); spray tool rewrite with Gaussian particle distribution and continuous emission
 - **v1.3.0** - Vector object system: selection tools detect and move drawn strokes directly; no tool switch required
 - **v1.2.2** - Fix selection tool infinite recursion; marquee/lasso/magic wand now correctly select drawn content
 - **v1.2.1** - Double-click finalize for selection tools and persistent selection-bound editing

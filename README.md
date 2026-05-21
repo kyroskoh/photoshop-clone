@@ -4,7 +4,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 **🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
 
-![ProPhoto Editor](https://img.shields.io/badge/version-1.3.0-blue.svg)
+![ProPhoto Editor](https://img.shields.io/badge/version-1.4.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
@@ -20,10 +20,13 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Brush Tool** - Paint with customizable brushes
 - **Pencil Tool** - Draw precise lines
 - **Eraser Tool** - Remove content with customizable size
-- **Spray Tool** - Airbrush-style painting
+- **Spray Tool** - Airbrush-style painting with Gaussian particle distribution and pressure simulation
 - **Text Tool** - Add text to your images
 - **Fill Tool** - Flood fill with color
 - **Crop Tool** - Draw, reposition, and apply crop areas
+- **Line Tool** - Draw straight lines; Shift snaps to 45° increments
+- **Rectangle Tool** - Draw outlined rectangles; Shift constrains to square
+- **Ellipse Tool** - Draw outlined ellipses; Shift constrains to circle
 
 ### Image Filters (7 Total)
 - Brightness adjustment
@@ -365,14 +368,13 @@ ProPhoto Editor includes comprehensive project management features:
 ## 📝 Known Limitations
 
 - Undo/Redo system has limited history (20 steps)
-- No built-in shape tools (circle, rectangle) yet
 - Selection tools are basic implementations
 - No advanced selection manipulation (transform, feather)
 - File format support limited to common image types
 
 ## 🚧 Future Enhancements
 
-- [ ] Advanced selection tools (ellipse, polygon)
+- [ ] Advanced selection tools (ellipse marquee, polygon lasso)
 - [ ] Transform tools (rotate, scale, skew)
 - [ ] Additional filters (emboss, edge detect, etc.)
 - [ ] Gradient tool
@@ -383,6 +385,7 @@ ProPhoto Editor includes comprehensive project management features:
 - [ ] Plugin system
 - [ ] Cloud save integration
 - [ ] Project templates
+- [ ] Shape fill option (filled vs. outline)
 
 ## 🤝 Contributing
 
