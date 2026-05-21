@@ -2897,23 +2897,10 @@
                     },
                     toolSettings: JSON.parse(JSON.stringify(toolSettings)),
                     history: history || [],
-                    historyIndex: historyIndex !== undefined ? historyIndex : -1,
-                    historyStates: (historyStates || []).map(state => ({
-                        canvas: state.canvas ? {
-                            width: state.canvas.width,
-                            height: state.canvas.height
-                        } : {
-                            width: canvas.width,
-                            height: canvas.height
-                        },
-                        layers: (state.layers || []).map(layer => ({
-                            imageData: layer.imageData,
-                            name: layer.name,
-                            visible: layer.visible,
-                            opacity: layer.opacity
-                        })),
-                        currentLayer: state.currentLayer
-                    }))
+                    historyIndex: historyIndex !== undefined ? historyIndex : -1
+                    // historyStates intentionally omitted — canvas snapshots are too large
+                    // for localStorage (up to 20 states × N layers × PNG ≈ 6-12 MB).
+                    // Undo history lives in memory only and resets on page reload.
                 };
                 
                 const stateString = JSON.stringify(state);
@@ -3025,21 +3012,13 @@
                                 updateZoom();
                             }
                             
-                            // Restore history
-                            if (state.history && state.history.length > 0) {
-                                history = state.history;
-                                historyIndex = state.historyIndex !== undefined ? state.historyIndex : history.length - 1;
-                                
-                                // Restore history states
-                                if (state.historyStates && state.historyStates.length > 0) {
-                                    historyStates = state.historyStates;
-                                }
-                            } else {
-                                // Create initial history
-                                history = ['Document Restored'];
-                                historyStates = [saveCanvasState()];
-                                historyIndex = 0;
-                            }
+                            // Restore history labels (names only; canvas snapshots are not
+                            // persisted to localStorage — they reset on each page load)
+                            history = (state.history && state.history.length > 0)
+                                ? state.history
+                                : ['Document Restored'];
+                            historyStates = [saveCanvasState()]; // single baseline snapshot
+                            historyIndex = 0;
                             
                             // Update UI
                             updateLayerList();
@@ -4204,14 +4183,25 @@
             addToHistory('Applied crop');
         }
         // Magic Wand selection — optimized with Uint8Array bitmask + flat integer stack
+        // Samples the composited (visible) canvas so clicking an object selects its pixels,
+        // not just the isolated current-layer pixels (which may be transparent around strokes).
         function selectMagicWand(x, y) {
             const layer = layers[currentLayer];
-            const lctx = layer.canvas.getContext('2d');
             const w = layer.canvas.width, h = layer.canvas.height;
             x = Math.round(x); y = Math.round(y);
             if (x < 0 || y < 0 || x >= w || y >= h) return;
 
-            const px = lctx.getImageData(0, 0, w, h).data;
+            // Composite all visible layers so the wand sees what the user sees
+            const flat = document.createElement('canvas');
+            flat.width = w; flat.height = h;
+            const flatCtx = flat.getContext('2d');
+            layers.forEach(l => {
+                if (!l.visible) return;
+                flatCtx.globalAlpha = l.opacity;
+                flatCtx.drawImage(l.canvas, 0, 0);
+            });
+            flatCtx.globalAlpha = 1;
+            const px = flatCtx.getImageData(0, 0, w, h).data;
             const si = (y * w + x) * 4;
             const tr = px[si], tg = px[si+1], tb = px[si+2], ta = px[si+3];
             const tol = magicWandTolerance;
