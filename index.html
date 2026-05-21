@@ -1934,6 +1934,29 @@
                     <input type="checkbox" id="shapeFilledToggle" onchange="updateShapeFilled()" style="cursor:pointer;"> Fill Shape
                 </label>
             </div>
+            <div class="control-group" id="gradientOptionsGroup" style="display:none;">
+                <span class="control-label" title="Gradient type">Gradient:</span>
+                <select id="gradientTypeSelect" onchange="updateGradientType()" style="background:#333;color:#fff;border:1px solid #555;border-radius:3px;padding:2px 4px;font-size:11px;">
+                    <option value="linear">Linear</option>
+                    <option value="radial">Radial</option>
+                </select>
+            </div>
+            <div class="control-group" id="patternOptionsGroup" style="display:none;">
+                <span class="control-label" title="Pattern source">Pattern:</span>
+                <select id="patternSelect" onchange="updatePatternSelection()" style="background:#333;color:#fff;border:1px solid #555;border-radius:3px;padding:2px 4px;font-size:11px;max-width:120px;">
+                    <option value="checker">Checker</option>
+                    <option value="diagonal">Diagonal</option>
+                    <option value="dots">Dots</option>
+                </select>
+                <button class="tool-button" onclick="chooseCustomPattern()" title="Load custom pattern image">Load</button>
+                <input type="file" id="patternFileInput" accept="image/*" style="display:none;" onchange="handlePatternFile(event)">
+            </div>
+            <div class="control-group" id="cloneOptionsGroup" style="display:none;">
+                <span class="control-label" title="Clone stamp source mode">Clone:</span>
+                <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#bbb;cursor:pointer;" title="Aligned clone source">
+                    <input type="checkbox" id="cloneAlignedToggle" checked onchange="updateCloneAligned()" style="cursor:pointer;">Aligned
+                </label>
+            </div>
 
             <div class="control-group">
                 <span class="control-label" title="Canvas Zoom Level">Zoom:</span>
@@ -2028,6 +2051,28 @@
                     <div class="icon">
                         <svg viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4z" fill="currentColor"/></svg>
                     </div>
+                </button>
+
+                <!-- Retouch -->
+                <div class="tool-group-divider"></div>
+                <div class="tool-group-label">Retouch</div>
+                <button class="tool-panel-button" id="gradientTool" onclick="selectTool('gradient')" title="Gradient Tool">
+                    <div class="icon">Gd</div>
+                </button>
+                <button class="tool-panel-button" id="patternTool" onclick="selectTool('pattern')" title="Pattern Tool">
+                    <div class="icon">Pt</div>
+                </button>
+                <button class="tool-panel-button" id="cloneStampTool" onclick="selectTool('cloneStamp')" title="Clone Stamp (Alt-click source)">
+                    <div class="icon">Cl</div>
+                </button>
+                <button class="tool-panel-button" id="blurToolTool" onclick="selectTool('blurTool')" title="Blur Tool">
+                    <div class="icon">Bl</div>
+                </button>
+                <button class="tool-panel-button" id="sharpenToolTool" onclick="selectTool('sharpenTool')" title="Sharpen Tool">
+                    <div class="icon">Sh</div>
+                </button>
+                <button class="tool-panel-button" id="burnToolTool" onclick="selectTool('burnTool')" title="Burn Tool">
+                    <div class="icon">Bn</div>
                 </button>
 
                 <!-- Shapes -->
@@ -2231,7 +2276,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.10.1</p>
+                    <p>Version 1.10.2</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2240,7 +2285,7 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
 
-                <p>New in v1.10.1: Selected layer elements now move smoothly on first drag (no second click), selecting an element auto-switches to Move tool, and rotate/flip quick-action icons were added to the top toolbar.</p>
+                <p>New in v1.10.2: Added Retouch category with Gradient, Pattern, Clone Stamp, Blur, Sharpen, and Burn tools, plus gradient/pattern replay support in layer element rendering.</p>
 
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
@@ -2464,6 +2509,12 @@
             line:             { size: 2,  opacity: 100 },
             rectangle:        { size: 2,  opacity: 100 },
             ellipse:          { size: 2,  opacity: 100 },
+            gradient:         { size: 10, opacity: 100 },
+            pattern:          { size: 20, opacity: 100 },
+            cloneStamp:       { size: 20, opacity: 100 },
+            blurTool:         { size: 20, opacity: 70  },
+            sharpenTool:      { size: 20, opacity: 70  },
+            burnTool:         { size: 20, opacity: 70  },
         };
         let cropArea = null;
         let cropInteractionMode = null;
@@ -2481,6 +2532,16 @@
         let justDragged = false;
         let currentOrientation = 'landscape'; // 'portrait' or 'landscape'
         let selectedPreset = null;
+        let gradientType = 'linear';
+        let gradientStart = null;
+        let gradientEnd = null;
+        let patternKey = 'checker';
+        let patternCache = {};
+        let patternImage = null;
+        let cloneSource = null;
+        let cloneAligned = true;
+        let cloneSnapshot = null;
+        let cloneOffset = null;
 
         // Initialize the editor
         function init() {
@@ -2513,6 +2574,7 @@
             
             // Initialize color palette
             initColorPalette();
+            initPatternPresets();
             
             // Initialize color swatches
             updatePrimaryColorSwatch(primaryColor);
@@ -3893,6 +3955,27 @@
             } else if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'ellipse') {
                 shapeStart = {x, y};
                 shapeEnd = {x, y};
+            } else if (currentTool === 'gradient') {
+                gradientStart = {x, y};
+                gradientEnd = {x, y};
+            } else if (currentTool === 'pattern') {
+                applyPatternBrush(x, y, false);
+            } else if (currentTool === 'cloneStamp') {
+                if (e.altKey) {
+                    cloneSource = { x, y };
+                    cloneOffset = null;
+                    showNotification('Clone source set', 1200);
+                    isDrawing = false;
+                    return;
+                }
+                if (!cloneSource) {
+                    showNotification('Alt-click to set clone source first', 1500);
+                    isDrawing = false;
+                    return;
+                }
+                startCloneStroke(x, y);
+            } else if (currentTool === 'blurTool' || currentTool === 'sharpenTool' || currentTool === 'burnTool') {
+                applyRetouchAt(x, y, currentTool);
             } else if (currentTool === 'marquee') {
                 // Modifier keys always override sticky mode on mousedown
                 if (e.shiftKey && e.altKey) setSelectionOp('intersect');
@@ -3985,6 +4068,17 @@
                     shapeEnd = constrainShapeEnd({x, y}, shapeStart, e);
                     renderLayers();
                 }
+            } else if (currentTool === 'gradient') {
+                if (gradientStart) {
+                    gradientEnd = {x, y};
+                    renderLayers();
+                }
+            } else if (currentTool === 'pattern') {
+                applyPatternBrush(x, y, true);
+            } else if (currentTool === 'cloneStamp') {
+                updateCloneStroke(x, y);
+            } else if (currentTool === 'blurTool' || currentTool === 'sharpenTool' || currentTool === 'burnTool') {
+                applyRetouchAt(x, y, currentTool);
             } else if (currentTool === 'marquee') {
                 if (selectionBorderDrag) updateSelectionBorderMove(x, y);
                 else if (moveInteraction) updateMoveInteraction(x, y, e);
@@ -4035,6 +4129,12 @@
                     }
                     shapeStart = null;
                     shapeEnd = null;
+                } else if (currentTool === 'gradient') {
+                    commitGradient();
+                    gradientStart = null;
+                    gradientEnd = null;
+                } else if (currentTool === 'cloneStamp') {
+                    endCloneStroke();
                 } else if (currentTool === 'marquee') {
                     if (selectionBorderDrag) { endSelectionBorderMove(); didSelectionMove = true; }
                     else if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
@@ -4152,6 +4252,9 @@
             if (sprayInterval) { clearInterval(sprayInterval); sprayInterval = null; }
             shapeStart = null;
             shapeEnd = null;
+            gradientStart = null;
+            gradientEnd = null;
+            cloneSnapshot = null;
             commitTextEdit(); // commit any in-progress inline text before switching
 
             // Cancel in-progress polygonal lasso when switching to another tool
@@ -4189,7 +4292,7 @@
             }
 
             // Update cursor
-            const sizeTools = ['brush', 'pencil', 'eraser', 'spray', 'line', 'rectangle', 'ellipse'];
+            const sizeTools = ['brush', 'pencil', 'eraser', 'spray', 'line', 'rectangle', 'ellipse', 'pattern', 'cloneStamp', 'blurTool', 'sharpenTool', 'burnTool'];
             if (tool === 'move') {
                 canvas.style.cursor = 'grab';
             } else if (tool === 'zoom') {
@@ -4213,16 +4316,19 @@
             document.getElementById('wandOptionsGroup').style.display = (tool === 'magicWand') ? '' : 'none';
             // Show fill toggle for shape tools that can be filled
             document.getElementById('shapeOptionsGroup').style.display = ['rectangle', 'ellipse'].includes(tool) ? '' : 'none';
+            document.getElementById('gradientOptionsGroup').style.display = (tool === 'gradient') ? '' : 'none';
+            document.getElementById('patternOptionsGroup').style.display = (tool === 'pattern') ? '' : 'none';
+            document.getElementById('cloneOptionsGroup').style.display = (tool === 'cloneStamp') ? '' : 'none';
 
             // Update status
-            const toolDisplayNames = { ellipticalMarquee: 'Elliptical Marquee', polygonalLasso: 'Polygonal Lasso', magicWand: 'Magic Wand' };
+            const toolDisplayNames = { ellipticalMarquee: 'Elliptical Marquee', polygonalLasso: 'Polygonal Lasso', magicWand: 'Magic Wand', cloneStamp: 'Clone Stamp', blurTool: 'Blur Tool', sharpenTool: 'Sharpen Tool', burnTool: 'Burn Tool' };
             document.getElementById('currentTool').textContent = toolDisplayNames[tool] || (tool.charAt(0).toUpperCase() + tool.slice(1));
         }
 
         function updateCursorRing(e) {
             const ring = document.getElementById('brushCursorRing');
             if (!ring) return;
-            const sizeTools = ['brush', 'pencil', 'eraser', 'spray', 'line', 'rectangle', 'ellipse'];
+            const sizeTools = ['brush', 'pencil', 'eraser', 'spray', 'line', 'rectangle', 'ellipse', 'pattern', 'cloneStamp', 'blurTool', 'sharpenTool', 'burnTool'];
             if (!sizeTools.includes(currentTool)) { ring.style.display = 'none'; return; }
             const diameter = Math.max(2, brushSize * zoom);
             const radius = diameter / 2;
@@ -4507,6 +4613,246 @@
             shapeStart = null; shapeEnd = null;
             ensureLayerExpanded(currentLayer);
             updateLayerList();
+            renderLayers();
+        }
+
+        function updateGradientType() {
+            const el = document.getElementById('gradientTypeSelect');
+            gradientType = el ? el.value : 'linear';
+        }
+
+        function updatePatternSelection() {
+            const el = document.getElementById('patternSelect');
+            patternKey = el ? el.value : 'checker';
+        }
+
+        function updateCloneAligned() {
+            const el = document.getElementById('cloneAlignedToggle');
+            cloneAligned = !!(el && el.checked);
+        }
+
+        function initPatternPresets() {
+            const mk = (w, h, painter) => {
+                const c = document.createElement('canvas');
+                c.width = w; c.height = h;
+                const pctx = c.getContext('2d');
+                painter(pctx, w, h);
+                return c;
+            };
+            patternCache.checker = mk(16, 16, (pctx, w, h) => {
+                pctx.fillStyle = '#fff'; pctx.fillRect(0, 0, w, h);
+                pctx.fillStyle = '#bbb'; pctx.fillRect(0, 0, 8, 8); pctx.fillRect(8, 8, 8, 8);
+            });
+            patternCache.diagonal = mk(16, 16, (pctx, w, h) => {
+                pctx.fillStyle = '#fff'; pctx.fillRect(0, 0, w, h);
+                pctx.strokeStyle = '#aaa'; pctx.lineWidth = 2;
+                pctx.beginPath(); pctx.moveTo(-4, 16); pctx.lineTo(16, -4); pctx.stroke();
+                pctx.beginPath(); pctx.moveTo(4, 20); pctx.lineTo(20, 4); pctx.stroke();
+            });
+            patternCache.dots = mk(16, 16, (pctx, w, h) => {
+                pctx.fillStyle = '#fff'; pctx.fillRect(0, 0, w, h);
+                pctx.fillStyle = '#999';
+                [4, 12].forEach(px => [4, 12].forEach(py => { pctx.beginPath(); pctx.arc(px, py, 2, 0, Math.PI * 2); pctx.fill(); }));
+            });
+        }
+
+        function chooseCustomPattern() {
+            const input = document.getElementById('patternFileInput');
+            if (input) input.click();
+        }
+
+        function handlePatternFile(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    patternImage = img;
+                    patternKey = 'custom';
+                    showNotification('Custom pattern loaded', 1500);
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function getActivePatternCanvas() {
+            if (patternKey === 'custom' && patternImage) {
+                const c = document.createElement('canvas');
+                c.width = Math.max(8, Math.min(128, patternImage.width));
+                c.height = Math.max(8, Math.min(128, patternImage.height));
+                c.getContext('2d').drawImage(patternImage, 0, 0, c.width, c.height);
+                return c;
+            }
+            return patternCache[patternKey] || patternCache.checker;
+        }
+
+        function applyPatternBrush(x, y, isDrawingStroke) {
+            if (isLayerLocked()) return;
+            const layer = layers[currentLayer];
+            const layerCtx = layer.canvas.getContext('2d');
+            const usingSelectionClip = applySelectionClip(layerCtx);
+            const patternSource = getActivePatternCanvas();
+            const pat = layerCtx.createPattern(patternSource, 'repeat');
+            layerCtx.save();
+            layerCtx.globalAlpha = opacity;
+            layerCtx.fillStyle = pat;
+            layerCtx.beginPath();
+            layerCtx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+            layerCtx.fill();
+            layerCtx.restore();
+            if (usingSelectionClip) layerCtx.restore();
+
+            if (!isDrawingStroke) {
+                if (!layer.strokes) layer.strokes = [];
+                const stroke = {
+                    id: ++strokeIdCounter, tool: 'pattern', name: '', color: primaryColor, size: brushSize, opacity, compositeOp: 'source-over',
+                    points: [{ x, y }], bx1: x - brushSize / 2, by1: y - brushSize / 2, bx2: x + brushSize / 2, by2: y + brushSize / 2,
+                    patternType: patternKey, selected: false
+                };
+                layer.strokes.push(stroke);
+                currentStrokeId = stroke.id;
+                ensureLayerExpanded(currentLayer);
+                updateLayerList();
+            } else if (currentStrokeId !== null) {
+                const stroke = (layer.strokes || []).find(s => s.id === currentStrokeId);
+                if (stroke) {
+                    stroke.points.push({ x, y });
+                    const r = brushSize / 2;
+                    stroke.bx1 = Math.min(stroke.bx1, x - r); stroke.by1 = Math.min(stroke.by1, y - r);
+                    stroke.bx2 = Math.max(stroke.bx2, x + r); stroke.by2 = Math.max(stroke.by2, y + r);
+                }
+            }
+            renderLayers();
+        }
+
+        function commitGradient() {
+            if (!gradientStart || !gradientEnd || isLayerLocked()) return;
+            const layer = layers[currentLayer];
+            const layerCtx = layer.canvas.getContext('2d');
+            const usingSelectionClip = applySelectionClip(layerCtx);
+            let g;
+            if (gradientType === 'radial') {
+                const r = Math.hypot(gradientEnd.x - gradientStart.x, gradientEnd.y - gradientStart.y);
+                g = layerCtx.createRadialGradient(gradientStart.x, gradientStart.y, 0, gradientStart.x, gradientStart.y, Math.max(1, r));
+            } else {
+                g = layerCtx.createLinearGradient(gradientStart.x, gradientStart.y, gradientEnd.x, gradientEnd.y);
+            }
+            g.addColorStop(0, primaryColor);
+            g.addColorStop(1, secondaryColor);
+            layerCtx.save();
+            layerCtx.globalAlpha = opacity;
+            layerCtx.fillStyle = g;
+            layerCtx.fillRect(0, 0, canvas.width, canvas.height);
+            layerCtx.restore();
+            if (usingSelectionClip) layerCtx.restore();
+
+            if (!layer.strokes) layer.strokes = [];
+            layer.strokes.push({
+                id: ++strokeIdCounter, tool: 'gradient', name: '', color: primaryColor, secondaryColor, size: brushSize, opacity,
+                points: [{ x: gradientStart.x, y: gradientStart.y }, { x: gradientEnd.x, y: gradientEnd.y }],
+                bx1: 0, by1: 0, bx2: canvas.width, by2: canvas.height, gradientType, selected: false
+            });
+            ensureLayerExpanded(currentLayer);
+            updateLayerList();
+            renderLayers();
+        }
+
+        function startCloneStroke(x, y) {
+            const layer = layers[currentLayer];
+            cloneSnapshot = layer.canvas.getContext('2d').getImageData(0, 0, layer.canvas.width, layer.canvas.height);
+            if (!cloneOffset || !cloneAligned) cloneOffset = { dx: cloneSource.x - x, dy: cloneSource.y - y };
+            applyCloneAt(x, y);
+        }
+
+        function updateCloneStroke(x, y) {
+            applyCloneAt(x, y);
+        }
+
+        function endCloneStroke() {
+            cloneSnapshot = null;
+        }
+
+        function applyCloneAt(x, y) {
+            if (isLayerLocked() || !cloneSnapshot || !cloneOffset) return;
+            const layer = layers[currentLayer];
+            const layerCtx = layer.canvas.getContext('2d');
+            const size = Math.max(1, Math.round(brushSize));
+            const half = Math.floor(size / 2);
+            const srcW = cloneSnapshot.width, srcH = cloneSnapshot.height;
+            const sx = Math.max(0, Math.min(srcW - size, Math.round(x + cloneOffset.dx - half)));
+            const sy = Math.max(0, Math.min(srcH - size, Math.round(y + cloneOffset.dy - half)));
+            const dx = Math.round(x - half), dy = Math.round(y - half);
+            const patch = new ImageData(size, size);
+            for (let row = 0; row < size; row++) {
+                for (let col = 0; col < size; col++) {
+                    const si = ((sy + row) * srcW + (sx + col)) * 4;
+                    const di = (row * size + col) * 4;
+                    patch.data[di] = cloneSnapshot.data[si];
+                    patch.data[di + 1] = cloneSnapshot.data[si + 1];
+                    patch.data[di + 2] = cloneSnapshot.data[si + 2];
+                    patch.data[di + 3] = cloneSnapshot.data[si + 3];
+                }
+            }
+            const usingSelectionClip = applySelectionClip(layerCtx);
+            const temp = document.createElement('canvas');
+            temp.width = size; temp.height = size;
+            temp.getContext('2d').putImageData(patch, 0, 0);
+            layerCtx.save();
+            layerCtx.globalAlpha = opacity;
+            layerCtx.drawImage(temp, dx, dy);
+            layerCtx.restore();
+            if (usingSelectionClip) layerCtx.restore();
+            renderLayers();
+        }
+
+        function applyRetouchAt(x, y, mode) {
+            if (isLayerLocked()) return;
+            const layer = layers[currentLayer];
+            const layerCtx = layer.canvas.getContext('2d');
+            const r = Math.max(1, Math.round(brushSize / 2));
+            const left = Math.max(0, Math.floor(x - r));
+            const top = Math.max(0, Math.floor(y - r));
+            const right = Math.min(canvas.width, Math.ceil(x + r));
+            const bottom = Math.min(canvas.height, Math.ceil(y + r));
+            const w = Math.max(1, right - left), h = Math.max(1, bottom - top);
+            const img = layerCtx.getImageData(left, top, w, h);
+            const src = new Uint8ClampedArray(img.data);
+            const strength = Math.max(0.05, Math.min(1, opacity));
+            for (let yy = 1; yy < h - 1; yy++) {
+                for (let xx = 1; xx < w - 1; xx++) {
+                    const dx = xx + left - x, dy = yy + top - y;
+                    if (dx * dx + dy * dy > r * r) continue;
+                    const i = (yy * w + xx) * 4;
+                    if (mode === 'burnTool') {
+                        img.data[i] = Math.max(0, img.data[i] * (1 - 0.35 * strength));
+                        img.data[i + 1] = Math.max(0, img.data[i + 1] * (1 - 0.35 * strength));
+                        img.data[i + 2] = Math.max(0, img.data[i + 2] * (1 - 0.35 * strength));
+                    } else {
+                        const acc = [0, 0, 0];
+                        for (let ky = -1; ky <= 1; ky++) {
+                            for (let kx = -1; kx <= 1; kx++) {
+                                const ni = ((yy + ky) * w + (xx + kx)) * 4;
+                                acc[0] += src[ni]; acc[1] += src[ni + 1]; acc[2] += src[ni + 2];
+                            }
+                        }
+                        const avg = [acc[0] / 9, acc[1] / 9, acc[2] / 9];
+                        if (mode === 'blurTool') {
+                            img.data[i] = src[i] * (1 - strength) + avg[0] * strength;
+                            img.data[i + 1] = src[i + 1] * (1 - strength) + avg[1] * strength;
+                            img.data[i + 2] = src[i + 2] * (1 - strength) + avg[2] * strength;
+                        } else if (mode === 'sharpenTool') {
+                            img.data[i] = Math.max(0, Math.min(255, src[i] + (src[i] - avg[0]) * 1.2 * strength));
+                            img.data[i + 1] = Math.max(0, Math.min(255, src[i + 1] + (src[i + 1] - avg[1]) * 1.2 * strength));
+                            img.data[i + 2] = Math.max(0, Math.min(255, src[i + 2] + (src[i + 2] - avg[2]) * 1.2 * strength));
+                        }
+                    }
+                }
+            }
+            const usingSelectionClip = applySelectionClip(layerCtx);
+            layerCtx.putImageData(img, left, top);
+            if (usingSelectionClip) layerCtx.restore();
             renderLayers();
         }
 
@@ -5176,6 +5522,22 @@
             if (shapeStart && shapeEnd) {
                 drawShapeToContext(ctx, shapeStart, shapeEnd, true);
             }
+            if (gradientStart && gradientEnd && currentTool === 'gradient') {
+                ctx.save();
+                let g;
+                if (gradientType === 'radial') {
+                    const r = Math.hypot(gradientEnd.x - gradientStart.x, gradientEnd.y - gradientStart.y);
+                    g = ctx.createRadialGradient(gradientStart.x, gradientStart.y, 0, gradientStart.x, gradientStart.y, Math.max(1, r));
+                } else {
+                    g = ctx.createLinearGradient(gradientStart.x, gradientStart.y, gradientEnd.x, gradientEnd.y);
+                }
+                g.addColorStop(0, primaryColor);
+                g.addColorStop(1, secondaryColor);
+                ctx.globalAlpha = Math.max(0.2, opacity * 0.7);
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
 
             drawSelectionOverlay();
 
@@ -5601,7 +5963,8 @@
                     const elemList = document.createElement('div');
                     elemList.className = 'layer-element-list';
                     const toolIcons = { brush:'🖌', pencil:'✏️', eraser:'⬜', spray:'💨',
-                                        line:'╲', rectangle:'▭', ellipse:'◯', text:'T', fill:'🪣' };
+                                        line:'╲', rectangle:'▭', ellipse:'◯', text:'T', fill:'🪣',
+                                        gradient:'🌈', pattern:'▩' };
                     layer.strokes.forEach((stroke, si) => {
                         const row = document.createElement('div');
                         const isSelected = selectedElementInfo &&
@@ -8414,7 +8777,31 @@
             ctx.save();
             ctx.globalAlpha = stroke.opacity;
             ctx.globalCompositeOperation = stroke.compositeOp || 'source-over';
-            if (stroke.tool === 'fill') {
+            if (stroke.tool === 'gradient' && Array.isArray(stroke.points) && stroke.points.length >= 2) {
+                const p1 = stroke.points[0], p2 = stroke.points[stroke.points.length - 1];
+                let g;
+                if ((stroke.gradientType || 'linear') === 'radial') {
+                    const r = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    g = ctx.createRadialGradient(p1.x, p1.y, 0, p1.x, p1.y, Math.max(1, r));
+                } else {
+                    g = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+                }
+                g.addColorStop(0, stroke.color || '#000');
+                g.addColorStop(1, stroke.secondaryColor || '#fff');
+                ctx.fillStyle = g;
+                ctx.fillRect(stroke.bx1, stroke.by1, stroke.bx2 - stroke.bx1, stroke.by2 - stroke.by1);
+            } else if (stroke.tool === 'pattern' && Array.isArray(stroke.points) && stroke.points.length > 0) {
+                const source = (stroke.patternType === 'custom' && patternImage)
+                    ? getActivePatternCanvas()
+                    : (patternCache[stroke.patternType] || patternCache.checker || getActivePatternCanvas());
+                const pat = ctx.createPattern(source, 'repeat');
+                ctx.fillStyle = pat;
+                stroke.points.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, Math.max(1, stroke.size / 2), 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            } else if (stroke.tool === 'fill') {
                 ctx.fillStyle = stroke.color;
                 ctx.fillRect(stroke.bx1, stroke.by1, stroke.bx2 - stroke.bx1, stroke.by2 - stroke.by1);
             } else if (stroke.tool === 'text') {

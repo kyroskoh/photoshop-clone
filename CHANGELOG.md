@@ -5,6 +5,16 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.2] - 2026-05-21
+
+### Added
+- **Retouch tool category** — introduced a new toolbox category dedicated to advanced paint/retouch workflows.
+- **New tools** — Gradient (linear/radial), Pattern (preset/custom), Clone Stamp (Alt-click source with aligned mode), Blur, Sharpen, and Burn tools.
+- **Contextual tool options** — added top-toolbar option groups for gradient type, pattern source selection/loading, and clone aligned toggle.
+
+### Changed
+- **Layer replay coverage** — extended stroke replay rendering for gradient and pattern layer elements so these new element types remain visible in layer/object redraw flows.
+
 ## [1.10.1] - 2026-05-21
 
 ### Changed
@@ -416,6 +426,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.10.2** - Added Retouch category with Gradient/Pattern/Clone Stamp/Blur/Sharpen/Burn tools and contextual options
 - **v1.10.1** - Smoothed first-drag selected-element movement, auto-selected Move tool on element pick, and added top-toolbar rotate/flip quick icons
 - **v1.10.0** - Added full Free Transform workflow, 90° rotate/flip/skew/perspective actions, and Shift-constrained transform behavior
 - **v1.9.5** - Added live layer thumbnail snapshots in the layer preview icons
