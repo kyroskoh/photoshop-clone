@@ -8013,6 +8013,13 @@
         function finishFreeTransform(commitChanges) {
             if (!freeTransformSession) return false;
             if (commitChanges) {
+                if (
+                    selectedElementInfo &&
+                    selectedElementInfo.layerIndex === currentLayer &&
+                    selectedElementInfo.strokeId != null
+                ) {
+                    preserveElementSelectionOnNextHistory = true;
+                }
                 const committed = floatingSelection ? commitFloatingSelection() : true;
                 if (committed) addToHistory('Free Transform');
                 freeTransformSession = null;
