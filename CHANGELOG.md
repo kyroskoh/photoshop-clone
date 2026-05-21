@@ -5,6 +5,11 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.5] - 2026-05-21
+
+### Added
+- **Layer preview thumbnails** — layer preview icons now render live snapshot thumbnails of each layer canvas, scaled to fit the preview tile.
+
 ## [1.9.4] - 2026-05-21
 
 ### Fixed
@@ -394,6 +399,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.9.5** - Added live layer thumbnail snapshots in the layer preview icons
 - **v1.9.4** - Preserved spray rendering and shape geometry correctly after moving selected elements
 - **v1.9.3** - Selected-element move commit cleanup, corrected canvas coordinate mapping at zoom, and auto-expand layer on new element creation
 - **v1.9.2** - Move tool now strictly targets the selected layer element and preserves selection after commit
