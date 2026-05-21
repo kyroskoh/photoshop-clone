@@ -5,6 +5,23 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-05-21
+
+### Added
+- **Marching ants animation** — selection borders now animate with classic black+white alternating dashes instead of a static line
+- **Selection combination modes** — Shift=Add, Alt=Subtract, Shift+Alt=Intersect across all three selection tools (marquee, lasso, magic wand); persistent mode buttons (☐ ⊕ ⊖ ⊗) appear in the toolbar when any selection tool is active
+- **Move selection border** — dragging inside an existing selection with a selection tool repositions the border without lifting pixels; move tool still extracts content
+- **Shift to constrain square** — Shift+drag in marquee New mode snaps to a perfect square
+- **Magic wand drawing constraint** — brush, pencil, eraser, and spray now paint only within the magic wand selection (pixel-accurate mask)
+- **Magic wand contiguous toggle** — Contiguous checkbox in toolbar; unchecked selects all matching pixels across the canvas non-contiguously
+- **Magic wand tolerance** — dedicated tolerance slider (0–255) in toolbar replaces the fill-tool slider when magic wand is active
+
+### Changed
+- Selection border now uses dual-stroke marching ants (white + black offset by 4 px, animated at 12.5 fps)
+- Magic wand bounding box gets a 10% blue tint overlay in addition to marching ants border
+- Selection mode buttons automatically appear in toolbar for marquee/lasso/magic wand tools and hide for all other tools
+- Modifier keys always override the sticky mode button on each new mouse-down
+
 ## [1.6.0] - 2026-05-20
 
 ### Added

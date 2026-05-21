@@ -176,6 +176,12 @@
             box-shadow: 0 0 0 1px #0078d4;
         }
 
+        .sel-op-btn.active {
+            background: #0066cc;
+            color: white;
+            border-color: #004499;
+        }
+
         .tool-button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -1803,6 +1809,22 @@
                 <span id="toleranceDisplay" title="Current tolerance value">30</span>
             </div>
 
+            <div class="control-group" id="selectionOpGroup" style="display:none;">
+                <span class="control-label" title="Selection operation mode">Mode:</span>
+                <button class="tool-button sel-op-btn active" id="selOpNew" onclick="setSelectionOp('new')" title="New Selection" style="min-width:24px;padding:2px 5px;font-size:12px;">☐</button>
+                <button class="tool-button sel-op-btn" id="selOpAdd" onclick="setSelectionOp('add')" title="Add to Selection [Shift]" style="min-width:24px;padding:2px 5px;font-size:12px;">⊕</button>
+                <button class="tool-button sel-op-btn" id="selOpSubtract" onclick="setSelectionOp('subtract')" title="Subtract from Selection [Alt]" style="min-width:24px;padding:2px 5px;font-size:12px;">⊖</button>
+                <button class="tool-button sel-op-btn" id="selOpIntersect" onclick="setSelectionOp('intersect')" title="Intersect with Selection [Shift+Alt]" style="min-width:24px;padding:2px 5px;font-size:12px;">⊗</button>
+            </div>
+            <div class="control-group" id="wandOptionsGroup" style="display:none;">
+                <span class="control-label" title="Magic Wand tolerance">Tolerance:</span>
+                <input type="range" class="slider" id="wandToleranceSlider" min="0" max="255" value="32" oninput="updateWandTolerance()" title="Magic Wand color tolerance (0=exact, 255=all)">
+                <span id="wandToleranceDisplay">32</span>
+                <label style="margin-left:6px;display:flex;align-items:center;gap:3px;font-size:11px;color:#bbb;cursor:pointer;" title="Contiguous: only select connected pixels">
+                    <input type="checkbox" id="wandContiguous" checked onchange="updateWandContiguous()" style="cursor:pointer;">Contiguous
+                </label>
+            </div>
+
             <div class="control-group">
                 <span class="control-label" title="Canvas Zoom Level">Zoom:</span>
                 <input type="range" class="slider" id="zoomSlider" min="10" max="500" value="100" onchange="updateZoom()" title="Adjust canvas zoom level (10-500%)">
@@ -2043,7 +2065,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.6.0</p>
+                    <p>Version 1.7.0</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2235,6 +2257,12 @@
         let sprayX = 0, sprayY = 0;
         let fillTolerance = 30;
         let textEditState = null; // { x, y, input, fontSize } while inline text editor is open
+        let selectionOp = 'new';           // 'new' | 'add' | 'subtract' | 'intersect'
+        let marchingAntsOffset = 0;
+        let selectionBorderDrag = null;    // for moving selection border without extracting content
+        let savedMaskForCombine = null;    // existing mask snapshot saved at selection start for combine ops
+        let wandDrawSaveData = null;       // ImageData snapshot at brush stroke start (magic wand masking)
+        let magicWandContiguous = true;    // contiguous vs non-contiguous wand mode
 
         // Per-tool settings memory (size and opacity remembered per tool)
         const toolSettings = {
@@ -2331,6 +2359,14 @@
 
             // Start in fit-to-screen mode
             requestAnimationFrame(() => fitToScreen());
+
+            // Marching ants animation for active selections
+            setInterval(() => {
+                if (selectedArea || selectedPixelSet) {
+                    marchingAntsOffset = (marchingAntsOffset + 1) % 8;
+                    renderLayers();
+                }
+            }, 80);
         }
 
         // Fixed tooltip for left-panel tool buttons
@@ -3616,18 +3652,41 @@
                 isDrawing = false; // zoom is a one-shot action, don't enter draw mode
                 return;
             } else if (currentTool === 'brush' || currentTool === 'pencil' || currentTool === 'eraser') {
+                if (selectionMode === 'magicWand' && selectedPixelSet) {
+                    const lyr = layers[currentLayer];
+                    wandDrawSaveData = lyr.canvas.getContext('2d').getImageData(0, 0, lyr.canvas.width, lyr.canvas.height);
+                }
                 useBrush(x, y, false);
             } else if (currentTool === 'spray') {
+                if (selectionMode === 'magicWand' && selectedPixelSet) {
+                    const lyr = layers[currentLayer];
+                    wandDrawSaveData = lyr.canvas.getContext('2d').getImageData(0, 0, lyr.canvas.width, lyr.canvas.height);
+                }
                 startSpray(x, y);
             } else if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'ellipse') {
                 shapeStart = {x, y};
                 shapeEnd = {x, y};
             } else if (currentTool === 'marquee') {
-                if (!tryStartSelectionMove(x, y)) startMarquee(x, y);
+                // Modifier keys always override sticky mode on mousedown
+                if (e.shiftKey && e.altKey) setSelectionOp('intersect');
+                else if (e.shiftKey) setSelectionOp('add');
+                else if (e.altKey) setSelectionOp('subtract');
+                // Border-drag only in 'new' mode; combine modes always draw a new selection
+                const mbMoved = selectionOp === 'new' && tryStartSelectionBorderMove(x, y);
+                if (!mbMoved) startMarquee(x, y);
             } else if (currentTool === 'lasso') {
-                if (!tryStartSelectionMove(x, y)) startLasso(x, y);
+                if (e.shiftKey && e.altKey) setSelectionOp('intersect');
+                else if (e.shiftKey) setSelectionOp('add');
+                else if (e.altKey) setSelectionOp('subtract');
+                const lbMoved = selectionOp === 'new' && tryStartSelectionBorderMove(x, y);
+                if (!lbMoved) startLasso(x, y);
             } else if (currentTool === 'magicWand') {
-                if (!tryStartSelectionMove(x, y)) selectMagicWand(x, y);
+                if (e.shiftKey && e.altKey) setSelectionOp('intersect');
+                else if (e.shiftKey) setSelectionOp('add');
+                else if (e.altKey) setSelectionOp('subtract');
+                // Wand: border-drag only in 'new' mode
+                const wbMoved = selectionOp === 'new' && tryStartSelectionBorderMove(x, y);
+                if (!wbMoved) selectMagicWand(x, y);
             } else if (currentTool === 'text') {
                 showTextDialog(x, y);
             } else if (currentTool === 'fill') {
@@ -3662,13 +3721,16 @@
                     renderLayers();
                 }
             } else if (currentTool === 'marquee') {
-                if (moveInteraction) updateMoveInteraction(x, y, e);
-                else updateMarquee(x, y);
+                if (selectionBorderDrag) updateSelectionBorderMove(x, y);
+                else if (moveInteraction) updateMoveInteraction(x, y, e);
+                else updateMarquee(x, y, e.shiftKey);
             } else if (currentTool === 'lasso') {
-                if (moveInteraction) updateMoveInteraction(x, y, e);
+                if (selectionBorderDrag) updateSelectionBorderMove(x, y);
+                else if (moveInteraction) updateMoveInteraction(x, y, e);
                 else updateLasso(x, y);
             } else if (currentTool === 'magicWand') {
-                if (moveInteraction) updateMoveInteraction(x, y, e);
+                if (selectionBorderDrag) updateSelectionBorderMove(x, y);
+                else if (moveInteraction) updateMoveInteraction(x, y, e);
             } else if (currentTool === 'crop') {
                 updateCrop(x, y);
             } else if (currentTool === 'move') {
@@ -3693,13 +3755,16 @@
                     shapeStart = null;
                     shapeEnd = null;
                 } else if (currentTool === 'marquee') {
-                    if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
+                    if (selectionBorderDrag) { endSelectionBorderMove(); didSelectionMove = true; }
+                    else if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
                     else endMarquee();
                 } else if (currentTool === 'lasso') {
-                    if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
+                    if (selectionBorderDrag) { endSelectionBorderMove(); didSelectionMove = true; }
+                    else if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
                     else endLasso();
                 } else if (currentTool === 'magicWand') {
-                    if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
+                    if (selectionBorderDrag) { endSelectionBorderMove(); didSelectionMove = true; }
+                    else if (moveInteraction) { endMoveInteraction(); didSelectionMove = true; }
                 } else if (currentTool === 'crop') {
                     endCropInteraction();
                 } else if (currentTool === 'move') {
@@ -3847,6 +3912,11 @@
 
             // Show tolerance slider only for fill tool
             document.getElementById('toleranceGroup').style.display = (tool === 'fill') ? '' : 'none';
+            // Show selection operation mode buttons for selection tools
+            const isSelectionTool = ['marquee', 'lasso', 'magicWand'].includes(tool);
+            document.getElementById('selectionOpGroup').style.display = isSelectionTool ? '' : 'none';
+            // Show magic wand options only for magic wand
+            document.getElementById('wandOptionsGroup').style.display = (tool === 'magicWand') ? '' : 'none';
 
             // Update status
             document.getElementById('currentTool').textContent = tool.charAt(0).toUpperCase() + tool.slice(1);
@@ -3892,6 +3962,11 @@
 
             if (usingSelectionClip) {
                 layerCtx.restore();
+            }
+
+            // Magic wand pixel-level masking: restore non-selected pixels to pre-stroke state
+            if (selectionMode === 'magicWand' && selectedPixelSet && wandDrawSaveData) {
+                applyWandMaskToLayerPixels();
             }
 
             // Vector stroke tracking (skip eraser — it removes pixels, not adds them)
@@ -3983,6 +4058,9 @@
             }
             layerCtx.restore();
             if (usingSelectionClip) layerCtx.restore();
+            if (selectionMode === 'magicWand' && selectedPixelSet && wandDrawSaveData) {
+                applyWandMaskToLayerPixels();
+            }
             renderLayers();
         }
 
@@ -4069,32 +4147,56 @@
 
         // Selection tools
         function startMarquee(x, y) {
+            // Save existing selection mask BEFORE overwriting state (needed for combine ops)
+            savedMaskForCombine = (selectionOp !== 'new') ? getSelectionMaskForCombine(canvas.width, canvas.height) : null;
             selectionMode = 'marquee';
             selectedPixelSet = null;
             selectedArea = {x1: x, y1: y, x2: x, y2: y};
             updateSelectionDisplay();
         }
 
-        function updateMarquee(x, y) {
+        function updateMarquee(x, y, shiftKey) {
+            if (shiftKey && selectionOp === 'new') {
+                const dx = x - selectedArea.x1;
+                const dy = y - selectedArea.y1;
+                const side = Math.min(Math.abs(dx), Math.abs(dy));
+                x = selectedArea.x1 + Math.sign(dx) * side;
+                y = selectedArea.y1 + Math.sign(dy) * side;
+            }
             selectedArea.x2 = x;
             selectedArea.y2 = y;
             updateSelectionDisplay();
         }
 
         function endMarquee() {
-            const w = Math.abs(selectedArea.x2 - selectedArea.x1);
-            const h = Math.abs(selectedArea.y2 - selectedArea.y1);
-            if (w < 1 || h < 1) {
-                clearSelectionState();
-                updateSelectionDisplay();
+            const mw = Math.abs(selectedArea.x2 - selectedArea.x1);
+            const mh = Math.abs(selectedArea.y2 - selectedArea.y1);
+            if (mw < 1 || mh < 1) {
+                if (selectionOp === 'new') { clearSelectionState(); updateSelectionDisplay(); }
                 return;
             }
-            rebuildSelectionMask();
-            detectStrokesInSelection();
-            updateSelectionDisplay();
+            if (selectionOp !== 'new') {
+                const cw = canvas.width, ch = canvas.height;
+                const newMask = new Uint8Array(cw * ch);
+                const x1 = Math.max(0, Math.round(Math.min(selectedArea.x1, selectedArea.x2)));
+                const y1 = Math.max(0, Math.round(Math.min(selectedArea.y1, selectedArea.y2)));
+                const x2 = Math.min(cw, Math.round(Math.max(selectedArea.x1, selectedArea.x2)));
+                const y2 = Math.min(ch, Math.round(Math.max(selectedArea.y1, selectedArea.y2)));
+                for (let row = y1; row < y2; row++)
+                    for (let col = x1; col < x2; col++)
+                        newMask[row * cw + col] = 1;
+                applyMaskSelection(combineSelectionMasks(savedMaskForCombine, newMask, selectionOp, cw, ch), cw, ch);
+                savedMaskForCombine = null;
+            } else {
+                rebuildSelectionMask();
+                detectStrokesInSelection();
+                updateSelectionDisplay();
+            }
+            addToHistory('Marquee Selection');
         }
 
         function startLasso(x, y) {
+            savedMaskForCombine = (selectionOp !== 'new') ? getSelectionMaskForCombine(canvas.width, canvas.height) : null;
             selectionMode = 'lasso';
             selectedPixelSet = null;
             lassoPoints = [{ x, y }];
@@ -4114,14 +4216,33 @@
                 const firstPoint = lassoPoints[0];
                 lassoPoints.push({ x: firstPoint.x, y: firstPoint.y });
             } else {
-                clearSelectionState();
-                updateSelectionDisplay();
+                if (selectionOp === 'new') { clearSelectionState(); updateSelectionDisplay(); }
                 return;
             }
             selectedArea = lassoPoints.slice();
-            rebuildSelectionMask();
-            detectStrokesInSelection();
-            updateSelectionDisplay();
+            if (selectionOp !== 'new') {
+                const cw = canvas.width, ch = canvas.height;
+                // Build lasso mask by rendering lasso polygon into pixels
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = cw; tempCanvas.height = ch;
+                const tctx = tempCanvas.getContext('2d');
+                tctx.fillStyle = 'white';
+                tctx.beginPath();
+                tctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+                for (let i = 1; i < lassoPoints.length; i++) tctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+                tctx.closePath();
+                tctx.fill();
+                const imgData = tctx.getImageData(0, 0, cw, ch);
+                const newMask = new Uint8Array(cw * ch);
+                for (let i = 0; i < cw * ch; i++) newMask[i] = imgData.data[i * 4 + 3] > 0 ? 1 : 0;
+                applyMaskSelection(combineSelectionMasks(savedMaskForCombine, newMask, selectionOp, cw, ch), cw, ch);
+                savedMaskForCombine = null;
+            } else {
+                rebuildSelectionMask();
+                detectStrokesInSelection();
+                updateSelectionDisplay();
+            }
+            addToHistory('Lasso Selection');
         }
 
         function normalizeCropRect(rect) {
@@ -4237,6 +4358,9 @@
             x = Math.round(x); y = Math.round(y);
             if (x < 0 || y < 0 || x >= w || y >= h) return;
 
+            // Save existing mask BEFORE we modify selection state (needed for combine ops)
+            savedMaskForCombine = (selectionOp !== 'new') ? getSelectionMaskForCombine(w, h) : null;
+
             // Composite all visible layers so the wand sees what the user sees
             const flat = document.createElement('canvas');
             flat.width = w; flat.height = h;
@@ -4255,41 +4379,59 @@
             // visited prevents re-queuing; selected tracks matched pixels
             const visited  = new Uint8Array(w * h);
             const selected = new Uint8Array(w * h);
-            const stack    = new Int32Array(w * h); // pre-allocated; each pixel queued at most once
-            let top = 0, count = 0;
+            let count = 0;
 
-            visited[y * w + x] = 1;
-            stack[top++] = y * w + x;
+            if (magicWandContiguous) {
+                // BFS flood-fill for contiguous selection
+                const stack = new Int32Array(w * h);
+                let top = 0;
+                visited[y * w + x] = 1;
+                stack[top++] = y * w + x;
 
-            while (top > 0) {
-                const idx = stack[--top];
-                const cx = idx % w, cy = (idx / w) | 0;
-                const di = idx * 4;
+                while (top > 0) {
+                    const idx = stack[--top];
+                    const cx = idx % w, cy = (idx / w) | 0;
+                    const di = idx * 4;
 
-                if (Math.abs(px[di]   - tr) + Math.abs(px[di+1] - tg) +
-                    Math.abs(px[di+2] - tb) + Math.abs(px[di+3] - ta) > tol) continue;
+                    if (Math.abs(px[di]   - tr) + Math.abs(px[di+1] - tg) +
+                        Math.abs(px[di+2] - tb) + Math.abs(px[di+3] - ta) > tol) continue;
 
-                selected[idx] = 1;
-                count++;
+                    selected[idx] = 1;
+                    count++;
 
-                if (cx > 0     && !visited[idx - 1]) { visited[idx - 1] = 1; stack[top++] = idx - 1; }
-                if (cx < w - 1 && !visited[idx + 1]) { visited[idx + 1] = 1; stack[top++] = idx + 1; }
-                if (cy > 0     && !visited[idx - w]) { visited[idx - w] = 1; stack[top++] = idx - w; }
-                if (cy < h - 1 && !visited[idx + w]) { visited[idx + w] = 1; stack[top++] = idx + w; }
+                    if (cx > 0     && !visited[idx - 1]) { visited[idx - 1] = 1; stack[top++] = idx - 1; }
+                    if (cx < w - 1 && !visited[idx + 1]) { visited[idx + 1] = 1; stack[top++] = idx + 1; }
+                    if (cy > 0     && !visited[idx - w]) { visited[idx - w] = 1; stack[top++] = idx - w; }
+                    if (cy < h - 1 && !visited[idx + w]) { visited[idx + w] = 1; stack[top++] = idx + w; }
+                }
+            } else {
+                // Non-contiguous: scan all pixels for color match
+                for (let i = 0; i < w * h; i++) {
+                    const di = i * 4;
+                    if (Math.abs(px[di]-tr)+Math.abs(px[di+1]-tg)+Math.abs(px[di+2]-tb)+Math.abs(px[di+3]-ta) <= tol) {
+                        selected[i] = 1;
+                        count++;
+                    }
+                }
             }
 
             if (count === 0) {
-                clearSelectionState();
-                updateSelectionDisplay();
+                if (selectionOp === 'new') { clearSelectionState(); updateSelectionDisplay(); }
                 return;
             }
 
-            selectionMode = 'magicWand';
-            selectedArea = []; // truthy sentinel; actual data is in selectedPixelSet
-            selectedPixelSet = { mask: selected, w, h };
-            rebuildSelectionMask();
-            detectStrokesInSelection();
-            updateSelectionDisplay();
+            if (selectionOp !== 'new') {
+                const combined = combineSelectionMasks(savedMaskForCombine, selected, selectionOp, w, h);
+                savedMaskForCombine = null;
+                applyMaskSelection(combined, w, h);
+            } else {
+                selectionMode = 'magicWand';
+                selectedArea = [];
+                selectedPixelSet = { mask: selected, w, h };
+                rebuildSelectionMask();
+                detectStrokesInSelection();
+                updateSelectionDisplay();
+            }
             addToHistory('Magic Wand Selection');
         }
 
@@ -6456,31 +6598,48 @@
         }
 
         function drawSelectionOverlay() {
-            if (!selectedArea) return;
+            if (!selectedArea && !selectedPixelSet) return;
 
             ctx.save();
-            ctx.strokeStyle = '#00a8ff';
             ctx.lineWidth = 1;
-            ctx.setLineDash([6, 3]);
 
-            if (Array.isArray(selectedArea)) {
-                if (selectedArea.length > 1) {
-                    ctx.beginPath();
+            const buildPath = () => {
+                ctx.beginPath();
+                if (selectionMode === 'marquee' && typeof selectedArea === 'object' && !Array.isArray(selectedArea)) {
+                    const x = Math.min(selectedArea.x1, selectedArea.x2);
+                    const y = Math.min(selectedArea.y1, selectedArea.y2);
+                    const w = Math.abs(selectedArea.x2 - selectedArea.x1);
+                    const h = Math.abs(selectedArea.y2 - selectedArea.y1);
+                    ctx.rect(x, y, w, h);
+                } else if (Array.isArray(selectedArea) && selectedArea.length > 1) {
                     ctx.moveTo(selectedArea[0].x, selectedArea[0].y);
-                    for (let i = 1; i < selectedArea.length; i++) {
-                        ctx.lineTo(selectedArea[i].x, selectedArea[i].y);
-                    }
-                    if (selectionMode === 'lasso') {
-                        ctx.closePath();
-                    }
-                    ctx.stroke();
+                    for (let i = 1; i < selectedArea.length; i++) ctx.lineTo(selectedArea[i].x, selectedArea[i].y);
+                    ctx.closePath();
+                } else if (selectionMode === 'magicWand' && selectionBounds) {
+                    ctx.rect(selectionBounds.x, selectionBounds.y, selectionBounds.width, selectionBounds.height);
                 }
-            } else if (typeof selectedArea === 'object') {
-                const x = Math.min(selectedArea.x1, selectedArea.x2);
-                const y = Math.min(selectedArea.y1, selectedArea.y2);
-                const w = Math.abs(selectedArea.x2 - selectedArea.x1);
-                const h = Math.abs(selectedArea.y2 - selectedArea.y1);
-                ctx.strokeRect(x, y, w, h);
+            };
+
+            // First stroke: white dashes
+            buildPath();
+            ctx.setLineDash([4, 4]);
+            ctx.lineDashOffset = -marchingAntsOffset;
+            ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+            ctx.stroke();
+
+            // Second stroke: black dashes offset by 4 = marching ants effect
+            buildPath();
+            ctx.lineDashOffset = -(marchingAntsOffset + 4);
+            ctx.strokeStyle = 'rgba(0,0,0,0.95)';
+            ctx.stroke();
+
+            // For magic wand: draw semi-transparent blue overlay on bounding box
+            if (selectionMode === 'magicWand' && selectionBounds) {
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 0.10;
+                ctx.fillStyle = '#0066ff';
+                ctx.fillRect(selectionBounds.x, selectionBounds.y, selectionBounds.width, selectionBounds.height);
+                ctx.globalAlpha = 1;
             }
 
             ctx.restore();
@@ -6502,6 +6661,119 @@
             selectedPixelSet = null;
             selectionMaskCanvas = null;
             selectionBounds = null;
+        }
+
+        // Combine two selection masks using a Boolean operation
+        function combineSelectionMasks(existingMask, newMask, op, w, h) {
+            const result = new Uint8Array(w * h);
+            for (let i = 0; i < w * h; i++) {
+                const a = existingMask ? existingMask[i] : 0;
+                const b = newMask[i];
+                switch (op) {
+                    case 'add':       result[i] = (a || b) ? 1 : 0; break;
+                    case 'subtract':  result[i] = (a && !b) ? 1 : 0; break;
+                    case 'intersect': result[i] = (a && b) ? 1 : 0; break;
+                    default:          result[i] = b; break;
+                }
+            }
+            return result;
+        }
+
+        // Convert current selection (any mode) to a pixel mask for combination
+        function getSelectionMaskForCombine(w, h) {
+            if (!hasActiveEditSelection()) return null;
+            const got = getCurrentSelectionMask();
+            if (!got) return null;
+            if (got.w === w && got.h === h) return got.mask;
+            // Size mismatch (shouldn't happen) — return null
+            return null;
+        }
+
+        // Set selection operation mode and update UI buttons
+        function setSelectionOp(op) {
+            selectionOp = op;
+            ['new','add','subtract','intersect'].forEach(o => {
+                const btn = document.getElementById('selOp' + o.charAt(0).toUpperCase() + o.slice(1));
+                if (btn) btn.classList.toggle('active', o === op);
+            });
+        }
+
+        // Update magic wand tolerance from slider
+        function updateWandTolerance() {
+            const sl = document.getElementById('wandToleranceSlider');
+            magicWandTolerance = parseInt(sl.value);
+            document.getElementById('wandToleranceDisplay').textContent = sl.value;
+        }
+
+        // Update magic wand contiguous mode
+        function updateWandContiguous() {
+            magicWandContiguous = document.getElementById('wandContiguous').checked;
+        }
+
+        // Try to start moving the selection BORDER (not content) — used by selection tools
+        function tryStartSelectionBorderMove(x, y) {
+            if (!hasActiveEditSelection()) return false;
+            if (!isPointSelected(x, y)) return false;
+            // Save current selection state for delta-based repositioning
+            selectionBorderDrag = {
+                startX: x, startY: y,
+                savedArea: selectedArea ? JSON.parse(JSON.stringify(selectedArea)) : null,
+                savedPixelSet: selectedPixelSet ? { mask: selectedPixelSet.mask.slice(), w: selectedPixelSet.w, h: selectedPixelSet.h } : null,
+                savedMode: selectionMode
+            };
+            return true;
+        }
+
+        function updateSelectionBorderMove(x, y) {
+            if (!selectionBorderDrag) return false;
+            const dx = Math.round(x - selectionBorderDrag.startX);
+            const dy = Math.round(y - selectionBorderDrag.startY);
+
+            if (selectionMode === 'marquee' && selectionBorderDrag.savedArea && !Array.isArray(selectionBorderDrag.savedArea)) {
+                const s = selectionBorderDrag.savedArea;
+                selectedArea = { x1: s.x1 + dx, y1: s.y1 + dy, x2: s.x2 + dx, y2: s.y2 + dy };
+            } else if (selectionMode === 'lasso' && Array.isArray(selectionBorderDrag.savedArea)) {
+                selectedArea = selectionBorderDrag.savedArea.map(p => ({ x: p.x + dx, y: p.y + dy }));
+                lassoPoints = selectedArea.slice();
+            } else if (selectionMode === 'magicWand' && selectionBorderDrag.savedPixelSet) {
+                const { mask: savedMask, w, h } = selectionBorderDrag.savedPixelSet;
+                const newMask = new Uint8Array(w * h);
+                for (let row = 0; row < h; row++) {
+                    for (let col = 0; col < w; col++) {
+                        if (!savedMask[row * w + col]) continue;
+                        const nr = row + dy, nc = col + dx;
+                        if (nr >= 0 && nr < h && nc >= 0 && nc < w) newMask[nr * w + nc] = 1;
+                    }
+                }
+                selectedPixelSet = { mask: newMask, w, h };
+            }
+            rebuildSelectionMask();
+            updateSelectionDisplay();
+            return true;
+        }
+
+        function endSelectionBorderMove() {
+            selectionBorderDrag = null;
+        }
+
+        // Apply magic wand mask to layer pixels — restores non-selected pixels from saved snapshot
+        function applyWandMaskToLayerPixels() {
+            if (!selectedPixelSet || !wandDrawSaveData) return;
+            const layer = layers[currentLayer];
+            const lctx = layer.canvas.getContext('2d');
+            const w = layer.canvas.width, h = layer.canvas.height;
+            const current = lctx.getImageData(0, 0, w, h);
+            const { mask } = selectedPixelSet;
+            for (let i = 0; i < w * h; i++) {
+                if (!mask[i]) {
+                    const j = i * 4;
+                    current.data[j]   = wandDrawSaveData.data[j];
+                    current.data[j+1] = wandDrawSaveData.data[j+1];
+                    current.data[j+2] = wandDrawSaveData.data[j+2];
+                    current.data[j+3] = wandDrawSaveData.data[j+3];
+                }
+            }
+            lctx.putImageData(current, 0, 0);
         }
 
         function deselectModalDeselect() {
