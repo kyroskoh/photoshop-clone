@@ -5,6 +5,12 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.2] - 2026-05-21
+
+### Fixed
+- **Selected element move scope** — when a specific layer element is selected, Move tool drag now applies only to that selected element instead of moving the whole layer.
+- **Selected element persistence after move** — after move/scale/rotate commit, the moved selected element now remains selected in the layer element list and on-canvas highlight.
+
 ## [1.9.1] - 2026-05-21
 
 ### Added
@@ -373,6 +379,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.9.2** - Move tool now strictly targets the selected layer element and preserves selection after commit
 - **v1.9.1** - Layer element list auto-refresh on create; history newest-first; selected-element move keeps registered coordinates synced; improved transformed text bounds
 - **v1.9.0** - Cursor ring for shape tools; ruler guides; layer content move; expandable layer element list with per-element select/rename/move
 - **v1.8.1** - Brush cursor ring for paint tools; layer lock/unlock controls and lock-state safeguards

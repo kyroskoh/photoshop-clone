@@ -2,6 +2,7 @@
 
 ## Project Overview
 **ProPhoto Editor** is a fully functional Photoshop clone built as a standalone HTML file with embedded CSS and JavaScript. This browser-based image editor provides professional-grade image editing capabilities similar to Adobe Photoshop functionality.
+**Version**: 1.9.2
 
 **Created by: Kyros Koh**
 **Live Demo**: https://kyroskoh.github.io/photoshop-clone/

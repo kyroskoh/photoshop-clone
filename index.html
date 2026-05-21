@@ -2195,7 +2195,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.9.1</p>
+                    <p>Version 1.9.2</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -2204,7 +2204,7 @@
                 <h3>About This Project</h3>
                 <p>ProPhoto Editor brings professional-grade image editing capabilities to the web. Inspired by Adobe Photoshop, this application provides a comprehensive set of drawing tools, filters, and layer management features — all running entirely in your browser with zero dependencies.</p>
 
-                <p>New in v1.9.1: Layer element list now updates immediately as elements are created, history shows newest actions at the top, and moved selected elements keep their registered coordinates in sync.</p>
+                <p>New in v1.9.2: Move tool now applies only to the specifically selected layer element and keeps that element selected after move/transform commit.</p>
 
                 <h3>Creator</h3>
                 <p><strong id="creatorName" style="cursor: pointer; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#4a9eff'" onmouseout="this.style.color='#fff'" onclick="handleCreatorClick()">Kyros Koh</strong><br>
@@ -2406,6 +2406,7 @@
         let creatingGuide = null;     // {type, canvasPos} while dragging from ruler
         const RULER_SIZE = 20;
         let selectedElementInfo = null; // {layerIndex, strokeId}
+        let preserveElementSelectionOnNextHistory = false;
 
         // Per-tool settings memory (size and opacity remembered per tool)
         const toolSettings = {
@@ -5211,11 +5212,13 @@
                 markUnsaved();
             }
             
-            // Clear element selection on history change
-            if (selectedElementInfo) {
+            // Clear element selection on history change unless an interaction
+            // explicitly requests preserving the current selected element.
+            if (selectedElementInfo && !preserveElementSelectionOnNextHistory) {
                 layers.forEach(l => (l.strokes || []).forEach(s => s.selected = false));
                 selectedElementInfo = null;
             }
+            preserveElementSelectionOnNextHistory = false;
 
             // Save state to localStorage after each action
             saveEditorState();
@@ -7866,7 +7869,7 @@
             // If a specific element is selected, lift just that stroke
             if (selectedElementInfo && selectedElementInfo.layerIndex === currentLayer) {
                 const ok = extractVectorFloatingSelection();
-                if (ok) { selectedElementInfo = null; updateLayerList(); return true; }
+                if (ok) { updateLayerList(); return true; }
             }
             const layer = layers[currentLayer];
             const layerCtx = layer.canvas.getContext('2d');
@@ -7951,7 +7954,14 @@
             if (vectorStrokes && layer) {
                 const transformed = vectorStrokes.map(s => transformStrokeWithFloating(s, floating));
                 if (!layer.strokes) layer.strokes = [];
-                layer.strokes.push(...transformed.map(s => ({ ...s, selected: false })));
+                layer.strokes.push(...transformed.map(s => {
+                    const isSelectedElement = !!(
+                        selectedElementInfo &&
+                        selectedElementInfo.layerIndex === currentLayer &&
+                        selectedElementInfo.strokeId === s.id
+                    );
+                    return { ...s, selected: isSelectedElement };
+                }));
             }
             renderLayers();
             updateLayerList();
@@ -7981,6 +7991,13 @@
             const shouldCommit = moveInteraction.type === 'move-selection' || moveInteraction.type === 'scale-selection' || moveInteraction.type === 'rotate-selection';
             moveInteraction = null;
             if (shouldCommit) {
+                if (
+                    selectedElementInfo &&
+                    selectedElementInfo.layerIndex === currentLayer &&
+                    selectedElementInfo.strokeId != null
+                ) {
+                    preserveElementSelectionOnNextHistory = true;
+                }
                 if (commitFloatingSelection()) {
                     addToHistory('Transform Selection');
                 }
