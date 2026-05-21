@@ -7937,12 +7937,22 @@
             };
         }
 
+        function ensureSelectedElementStrokeFlag() {
+            if (!selectedElementInfo) return;
+            const layer = layers[selectedElementInfo.layerIndex];
+            if (!layer || !Array.isArray(layer.strokes)) return;
+            layer.strokes.forEach(s => { s.selected = false; });
+            const stroke = layer.strokes.find(s => s.id === selectedElementInfo.strokeId);
+            if (stroke) stroke.selected = true;
+        }
+
         function beginFreeTransform() {
             selectTool('move');
             if (isLayerLocked()) return false;
             if (freeTransformSession) {
-                showNotification('Free Transform is already active', 1500);
-                return true;
+                // Reuse active session when valid; recover if stale.
+                if (floatingSelection) return true;
+                freeTransformSession = null;
             }
 
             const layer = layers[currentLayer];
@@ -7962,6 +7972,7 @@
             if (!floatingSelection) {
                 let ok = false;
                 if (selectedElementInfo && selectedElementInfo.layerIndex === currentLayer) {
+                    ensureSelectedElementStrokeFlag();
                     ok = extractVectorFloatingSelection();
                 } else if (hasActiveEditSelection()) {
                     ok = extractVectorFloatingSelection() || extractFloatingSelectionFromCurrentLayer();
@@ -8063,10 +8074,16 @@
         }
 
         function applyRotateByDegrees(deg) {
+            const hadSession = !!freeTransformSession;
             if (!beginFreeTransform() || !floatingSelection) return;
             floatingSelection.rotation += (deg * Math.PI) / 180;
             renderLayers();
-            showNotification(`Rotate ${deg}° applied (Enter to commit)`, 1600);
+            if (!hadSession) {
+                finishFreeTransform(true);
+                showNotification(`Rotate ${deg}° applied`, 1400);
+            } else {
+                showNotification(`Rotate ${deg}° applied (Enter to commit)`, 1600);
+            }
         }
 
         function applyRotate90CW() {
@@ -8082,17 +8099,29 @@
         }
 
         function applyFlipHorizontal() {
+            const hadSession = !!freeTransformSession;
             if (!beginFreeTransform() || !floatingSelection) return;
             floatingSelection.scaleX = -(floatingSelection.scaleX || 1);
             renderLayers();
-            showNotification('Flip Horizontal applied (Enter to commit)', 1600);
+            if (!hadSession) {
+                finishFreeTransform(true);
+                showNotification('Flip Horizontal applied', 1400);
+            } else {
+                showNotification('Flip Horizontal applied (Enter to commit)', 1600);
+            }
         }
 
         function applyFlipVertical() {
+            const hadSession = !!freeTransformSession;
             if (!beginFreeTransform() || !floatingSelection) return;
             floatingSelection.scaleY = -(floatingSelection.scaleY || 1);
             renderLayers();
-            showNotification('Flip Vertical applied (Enter to commit)', 1600);
+            if (!hadSession) {
+                finishFreeTransform(true);
+                showNotification('Flip Vertical applied', 1400);
+            } else {
+                showNotification('Flip Vertical applied (Enter to commit)', 1600);
+            }
         }
 
         function applyPerspectiveTransform() {
