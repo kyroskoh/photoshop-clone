@@ -1666,6 +1666,9 @@
                             <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('webp'); hideAllDropdowns();">Save As WebP...</div>
                             <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('avif'); hideAllDropdowns();">Save As AVIF...</div>
                             <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('svg'); hideAllDropdowns();">Save As SVG...</div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-group-label">Video (3 s)</div>
+                            <div class="dropdown-item" onclick="event.stopPropagation(); exportAsWebm(); hideAllDropdowns();">Export as WebM...</div>
                         </div>
                     </div>
                 </div>
@@ -5582,6 +5585,43 @@
             a.download = `${name}.svg`;
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+        // WebM export — records a 3-second canvas animation cycling through layers
+        // (restored from commit 68d4e49 by a2937)
+        let _webmAnimId = null;
+        function exportAsWebm() {
+            if (_webmAnimId) cancelAnimationFrame(_webmAnimId);
+            currentLayer = 0;
+            _webmAnimId = requestAnimationFrame(_webmAnim);
+            _startRecording();
+        }
+        function _webmAnim() {
+            currentLayer = (currentLayer + 1) % layers.length;
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(layers[currentLayer].canvas, 0, 0);
+            _webmAnimId = requestAnimationFrame(_webmAnim);
+        }
+        function _startRecording() {
+            const chunks = [];
+            const stream = canvas.captureStream();
+            const rec = new MediaRecorder(stream);
+            rec.ondataavailable = e => chunks.push(e.data);
+            rec.onstop = () => {
+                cancelAnimationFrame(_webmAnimId);
+                _webmAnimId = null;
+                redrawCanvas(); // restore normal canvas state
+                _exportVid(new Blob(chunks, { type: 'video/webm' }));
+            };
+            rec.start();
+            setTimeout(() => rec.stop(), 3000);
+        }
+        function _exportVid(blob) {
+            const link = document.createElement('a');
+            link.download = (projectName && projectName !== 'Untitled' ? projectName : 'video') + '.webm';
+            link.href = URL.createObjectURL(blob);
+            link.click();
         }
 
         // Export with Transparency — flattens all visible non-Background layers as PNG with alpha
