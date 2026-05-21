@@ -4,7 +4,7 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 
 **🌐 [Live Demo](https://kyroskoh.github.io/photoshop-clone/)**
 
-![ProPhoto Editor](https://img.shields.io/badge/version-1.5.3-blue.svg)
+![ProPhoto Editor](https://img.shields.io/badge/version-1.5.4-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
@@ -180,14 +180,10 @@ A feature-rich, browser-based Photoshop clone built with pure HTML5, CSS3, and J
 - **Open Image...** - Load an image from your computer
 - **Save Project...** - Save project as .prophoto file (includes all layers, history, settings)
 - **Load Project...** - Load a previously saved .prophoto project file
-- **Save As PNG...** - Export as PNG (lossless, supports transparency)
-- **Save As JPEG...** - Export as JPEG (92% quality, white background)
-- **Save As WebP...** - Export as WebP (85% quality, modern format, supports transparency)
-- **Save As BMP...** - Export as BMP (uncompressed 24-bit, maximum compatibility)
-- **Save As GIF...** - Export as GIF (256-color 3-3-2 quantization, inline encoder)
-- **Save As AVIF...** - Export as AVIF (85% quality; requires Chrome/Edge/Firefox)
-- **Save As TIFF...** - Export as TIFF (uncompressed 24-bit, inline encoder)
-- **Save As SVG...** - Export as SVG (PNG image embedded in SVG wrapper)
+- **Export with Transparency (PNG)...** - Flatten all visible non-Background layers and export as PNG with alpha preserved; useful for stickers, overlays, and assets
+- **Export / Save As ▶** (flyout submenu)
+  - *With background* — JPEG, BMP, GIF, TIFF
+  - *Supports transparency* — PNG, WebP, AVIF, SVG
 
 ### Edit Menu
 - **Undo** - Revert last action
@@ -418,7 +414,7 @@ ProPhoto Editor includes comprehensive project management features:
 - [ ] Gradient tool
 - [ ] Pattern/stamp tool
 - [ ] Adjustment layers
-- [ ] Export with transparency
+- [x] Export with transparency
 - [ ] Batch processing
 - [ ] Plugin system
 - [ ] Cloud save integration

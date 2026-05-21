@@ -5,6 +5,16 @@ All notable changes to ProPhoto Editor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] - 2026-05-20
+
+### Added
+- **Export with Transparency (PNG)** — new File menu item that flattens all visible non-Background layers and exports as `<name>_transparent.png` with alpha channel preserved; ideal for stickers, overlays, and compositing assets.
+
+### Changed
+- **File menu reorganised** — the 8 "Save As" format items are now grouped in a flyout **Export / Save As ▶** submenu, split into two labelled sections:
+  - *With background* (JPEG, BMP, GIF, TIFF)
+  - *Supports transparency* (PNG, WebP, AVIF, SVG)
+
 ## [1.5.3] - 2026-05-20
 
 ### Added
@@ -265,6 +275,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **v1.5.4** - Export with Transparency (PNG); flyout Export/Save As submenu grouped by transparency support
 - **v1.5.3** - Shortcut keys in tool tooltips; all 8 export formats (PNG/JPEG/WebP/BMP/GIF/AVIF/TIFF/SVG); fixed inline text editor; clean shape tooltips
 - **v1.5.2** - Inline text editor on canvas; zoom tool added; keyboard shortcuts blocked during text editing
 - **v1.5.1** - Full keyboard shortcuts for all 15 tools, bracket size/opacity control, zoom shortcuts, Ctrl+D deselect, Delete clear layer

@@ -1188,6 +1188,42 @@
             background: transparent;
         }
 
+        /* Flyout submenu */
+        .dropdown-has-submenu {
+            position: relative;
+        }
+        .dropdown-has-submenu > .submenu-arrow {
+            float: right;
+            margin-left: 16px;
+            opacity: 0.7;
+            font-size: 10px;
+            line-height: 1.6;
+        }
+        .dropdown-submenu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: -1px;
+            background: #3c3c3c;
+            border: 1px solid #555;
+            border-radius: 4px;
+            box-shadow: 2px 4px 14px rgba(0,0,0,0.55);
+            min-width: 180px;
+            z-index: 1001;
+        }
+        .dropdown-has-submenu:hover > .dropdown-submenu {
+            display: block;
+        }
+        .dropdown-group-label {
+            padding: 4px 16px 2px;
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            cursor: default;
+            user-select: none;
+        }
+
         .dropdown-divider {
             height: 1px;
             background: #555;
@@ -1615,14 +1651,23 @@
                     <div class="dropdown-item dev-mode-only" id="saveJsonMenuItem" style="display: none;" onclick="event.stopPropagation(); saveProjectAsJson(); hideAllDropdowns();">Save Project as JSON...</div>
                     <div class="dropdown-item dev-mode-only" id="loadJsonMenuItem" style="display: none;" onclick="event.stopPropagation(); loadProjectAsJson(); hideAllDropdowns();">Load Project as JSON...</div>
                     <div class="dropdown-divider"></div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('png'); hideAllDropdowns();">Save As PNG...</div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('jpeg'); hideAllDropdowns();">Save As JPEG...</div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('webp'); hideAllDropdowns();">Save As WebP...</div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('bmp'); hideAllDropdowns();">Save As BMP...</div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('gif'); hideAllDropdowns();">Save As GIF...</div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('avif'); hideAllDropdowns();">Save As AVIF...</div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('tiff'); hideAllDropdowns();">Save As TIFF...</div>
-                    <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('svg'); hideAllDropdowns();">Save As SVG...</div>
+                    <div class="dropdown-item" onclick="event.stopPropagation(); exportWithTransparency(); hideAllDropdowns();">Export with Transparency (PNG)...</div>
+                    <div class="dropdown-item dropdown-has-submenu">
+                        Export / Save As<span class="submenu-arrow">&#9658;</span>
+                        <div class="dropdown-submenu">
+                            <div class="dropdown-group-label">With background</div>
+                            <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('jpeg'); hideAllDropdowns();">Save As JPEG...</div>
+                            <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('bmp'); hideAllDropdowns();">Save As BMP...</div>
+                            <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('gif'); hideAllDropdowns();">Save As GIF...</div>
+                            <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('tiff'); hideAllDropdowns();">Save As TIFF...</div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-group-label">Supports transparency</div>
+                            <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('png'); hideAllDropdowns();">Save As PNG...</div>
+                            <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('webp'); hideAllDropdowns();">Save As WebP...</div>
+                            <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('avif'); hideAllDropdowns();">Save As AVIF...</div>
+                            <div class="dropdown-item" onclick="event.stopPropagation(); exportAs('svg'); hideAllDropdowns();">Save As SVG...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="menu-separator"></div>
@@ -1960,7 +2005,7 @@
                 <div class="modal-icon">P</div>
                 <div class="modal-title-block">
                     <h2>ProPhoto Editor</h2>
-                    <p>Version 1.5.3</p>
+                    <p>Version 1.5.4</p>
                 </div>
             </div>
             <div class="modal-body">
@@ -5537,6 +5582,29 @@
             a.download = `${name}.svg`;
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+        // Export with Transparency — flattens all visible non-Background layers as PNG with alpha
+        function exportWithTransparency() {
+            const name = (projectName && projectName !== 'Untitled' ? projectName : 'image');
+            const out = document.createElement('canvas');
+            out.width = canvas.width;
+            out.height = canvas.height;
+            const ctx = out.getContext('2d');
+            layers.forEach(layer => {
+                if (!layer.visible || layer.name === 'Background') return;
+                ctx.globalAlpha = layer.opacity;
+                ctx.drawImage(layer.canvas, 0, 0);
+            });
+            ctx.globalAlpha = 1;
+            out.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${name}_transparent.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
         }
 
         // Save project as .prophoto file
